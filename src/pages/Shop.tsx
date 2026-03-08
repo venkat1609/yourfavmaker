@@ -101,6 +101,10 @@ export default function Shop() {
   const filteredProducts = useMemo(() => {
     let result = [...allProducts];
 
+    if (selectedTag) {
+      result = result.filter(p => (p.tags as string[] | undefined)?.includes(selectedTag));
+    }
+
     if (selectedCategories.length > 0) {
       result = result.filter(p => selectedCategories.includes(p.category || ''));
     }
