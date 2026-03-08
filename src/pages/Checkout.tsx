@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Minus, Plus, Trash2, ArrowLeft, Check, ShoppingBag, MapPin, CreditCard } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Minus, Plus, Trash2, ArrowLeft, Check, ShoppingBag, MapPin, CreditCard, PlusCircle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 declare global {
@@ -58,6 +59,17 @@ function useRazorpayScript() {
   return loaded;
 }
 
+interface SavedAddress {
+  id: string;
+  label: string;
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  is_default: boolean;
+}
+
 export default function Checkout() {
   const { items, total, updateQuantity, removeFromCart } = useCart();
   const { user } = useAuth();
@@ -67,6 +79,8 @@ export default function Checkout() {
 
   const [step, setStep] = useState(1);
   const [placing, setPlacing] = useState(false);
+  const [addressMode, setAddressMode] = useState<'saved' | 'new'>('saved');
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [shipping, setShipping] = useState<ShippingForm>({
     fullName: '',
     phone: '',
@@ -76,6 +90,33 @@ export default function Checkout() {
     pincode: '',
   });
   const [errors, setErrors] = useState<Partial<ShippingForm>>({});
+
+  // Fetch saved addresses
+  const { data: savedAddresses = [], isLoading: loadingAddresses } = useQuery({
+    queryKey: ['addresses', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from('addresses')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('is_default', { ascending: false });
+      if (error) throw error;
+      return data as SavedAddress[];
+    },
+    enabled: !!user,
+  });
+
+  // Auto-select default address or first address
+  useEffect(() => {
+    if (savedAddresses.length > 0 && !selectedAddressId) {
+      const defaultAddr = savedAddresses.find(a => a.is_default) || savedAddresses[0];
+      setSelectedAddressId(defaultAddr.id);
+      setAddressMode('saved');
+    } else if (savedAddresses.length === 0) {
+      setAddressMode('new');
+    }
+  }, [savedAddresses, selectedAddressId]);
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -110,8 +151,69 @@ export default function Checkout() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleShippingSubmit = () => {
-    if (validateShipping()) {
+  const getShippingAddress = () => {
+    if (addressMode === 'saved' && selectedAddressId) {
+      const addr = savedAddresses.find(a => a.id === selectedAddressId);
+      if (addr) {
+        return {
+          full_name: shipping.fullName.trim() || addr.label,
+          phone: shipping.phone.trim(),
+          street: addr.street,
+          city: addr.city,
+          state: addr.state,
+          pincode: addr.zip,
+          country: 'India',
+        };
+      }
+    }
+    return {
+      full_name: shipping.fullName.trim(),
+      phone: shipping.phone.trim(),
+      street: shipping.street.trim(),
+      city: shipping.city.trim(),
+      state: shipping.state,
+      pincode: shipping.pincode.trim(),
+      country: 'India',
+    };
+  };
+
+  const handleShippingSubmit = async () => {
+    if (addressMode === 'saved' && selectedAddressId) {
+      // For saved address, only validate name & phone
+      const newErrors: Partial<ShippingForm> = {};
+      if (!shipping.fullName.trim() || shipping.fullName.trim().length < 2) {
+        newErrors.fullName = 'Full name is required (min 2 characters)';
+      }
+      if (!shipping.phone.trim() || !/^[6-9]\d{9}$/.test(shipping.phone.trim())) {
+        newErrors.phone = 'Valid 10-digit Indian mobile number required';
+      }
+      setErrors(newErrors);
+      if (Object.keys(newErrors).length > 0) return;
+      setStep(3);
+    } else {
+      if (!validateShipping()) return;
+
+      // Save new address for future use
+      if (user) {
+        try {
+          const { error } = await supabase.from('addresses').insert({
+            user_id: user.id,
+            street: shipping.street.trim(),
+            city: shipping.city.trim(),
+            state: shipping.state,
+            zip: shipping.pincode.trim(),
+            country: 'India',
+            label: `${shipping.city.trim()}, ${shipping.state}`,
+            is_default: savedAddresses.length === 0,
+          });
+          if (!error) {
+            queryClient.invalidateQueries({ queryKey: ['addresses'] });
+            toast.success('Address saved for future use');
+          }
+        } catch {
+          // Non-blocking: address save failed silently
+        }
+      }
       setStep(3);
     }
   };
@@ -120,18 +222,11 @@ export default function Checkout() {
     if (!user || items.length === 0 || !razorpayLoaded) return;
     setPlacing(true);
     try {
+      const shippingAddress = getShippingAddress();
       const { data, error } = await supabase.functions.invoke('razorpay-order', {
         body: {
           action: 'create',
-          shipping_address: {
-            full_name: shipping.fullName.trim(),
-            phone: shipping.phone.trim(),
-            street: shipping.street.trim(),
-            city: shipping.city.trim(),
-            state: shipping.state,
-            pincode: shipping.pincode.trim(),
-            country: 'India',
-          },
+          shipping_address: shippingAddress,
         },
       });
 
@@ -195,6 +290,8 @@ export default function Checkout() {
       setPlacing(false);
     }
   };
+
+  const selectedAddress = savedAddresses.find(a => a.id === selectedAddressId);
 
   // Step indicator
   const StepIndicator = () => (
@@ -321,6 +418,7 @@ export default function Checkout() {
         <div className="space-y-6">
           <p className="text-sm text-muted-foreground">We currently deliver only within India 🇮🇳</p>
 
+          {/* Name & Phone (always required) */}
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="fullName">Full Name</Label>
@@ -351,60 +449,121 @@ export default function Checkout() {
               </div>
               {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
             </div>
-
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="street">Address</Label>
-              <Input
-                id="street"
-                placeholder="House no, building, street, area"
-                value={shipping.street}
-                maxLength={200}
-                onChange={e => setShipping(s => ({ ...s, street: e.target.value }))}
-              />
-              {errors.street && <p className="text-xs text-destructive">{errors.street}</p>}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="city">City</Label>
-              <Input
-                id="city"
-                placeholder="City"
-                value={shipping.city}
-                maxLength={100}
-                onChange={e => setShipping(s => ({ ...s, city: e.target.value }))}
-              />
-              {errors.city && <p className="text-xs text-destructive">{errors.city}</p>}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="pincode">Pincode</Label>
-              <Input
-                id="pincode"
-                placeholder="6-digit pincode"
-                value={shipping.pincode}
-                maxLength={6}
-                onChange={e => setShipping(s => ({ ...s, pincode: e.target.value.replace(/\D/g, '') }))}
-              />
-              {errors.pincode && <p className="text-xs text-destructive">{errors.pincode}</p>}
-            </div>
-
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label>State / Union Territory</Label>
-              <Select value={shipping.state} onValueChange={val => setShipping(s => ({ ...s, state: val }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select state" />
-                </SelectTrigger>
-                <SelectContent>
-                  {INDIAN_STATES.map(st => (
-                    <SelectItem key={st} value={st}>{st}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.state && <p className="text-xs text-destructive">{errors.state}</p>}
-            </div>
           </div>
 
-          <Button className="w-full" onClick={handleShippingSubmit}>
+          {/* Address selection */}
+          {savedAddresses.length > 0 && (
+            <div className="space-y-3">
+              <Label className="text-base font-heading">Delivery Address</Label>
+              <RadioGroup
+                value={addressMode === 'saved' ? selectedAddressId || '' : 'new'}
+                onValueChange={(val) => {
+                  if (val === 'new') {
+                    setAddressMode('new');
+                    setSelectedAddressId(null);
+                  } else {
+                    setAddressMode('saved');
+                    setSelectedAddressId(val);
+                  }
+                }}
+                className="space-y-3"
+              >
+                {savedAddresses.map(addr => (
+                  <label
+                    key={addr.id}
+                    className={`flex items-start gap-3 p-4 border rounded-sm cursor-pointer transition-colors ${
+                      addressMode === 'saved' && selectedAddressId === addr.id
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-muted-foreground/30'
+                    }`}
+                  >
+                    <RadioGroupItem value={addr.id} className="mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{addr.label}</span>
+                        {addr.is_default && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-accent text-accent-foreground rounded">Default</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {addr.street}, {addr.city}, {addr.state} — {addr.zip}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+
+                <label
+                  className={`flex items-center gap-3 p-4 border rounded-sm cursor-pointer transition-colors ${
+                    addressMode === 'new'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-muted-foreground/30'
+                  }`}
+                >
+                  <RadioGroupItem value="new" />
+                  <PlusCircle className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Add new address</span>
+                </label>
+              </RadioGroup>
+            </div>
+          )}
+
+          {/* New address form */}
+          {addressMode === 'new' && (
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="street">Address</Label>
+                <Input
+                  id="street"
+                  placeholder="House no, building, street, area"
+                  value={shipping.street}
+                  maxLength={200}
+                  onChange={e => setShipping(s => ({ ...s, street: e.target.value }))}
+                />
+                {errors.street && <p className="text-xs text-destructive">{errors.street}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  placeholder="City"
+                  value={shipping.city}
+                  maxLength={100}
+                  onChange={e => setShipping(s => ({ ...s, city: e.target.value }))}
+                />
+                {errors.city && <p className="text-xs text-destructive">{errors.city}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="pincode">Pincode</Label>
+                <Input
+                  id="pincode"
+                  placeholder="6-digit pincode"
+                  value={shipping.pincode}
+                  maxLength={6}
+                  onChange={e => setShipping(s => ({ ...s, pincode: e.target.value.replace(/\D/g, '') }))}
+                />
+                {errors.pincode && <p className="text-xs text-destructive">{errors.pincode}</p>}
+              </div>
+
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>State / Union Territory</Label>
+                <Select value={shipping.state} onValueChange={val => setShipping(s => ({ ...s, state: val }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select state" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INDIAN_STATES.map(st => (
+                      <SelectItem key={st} value={st}>{st}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.state && <p className="text-xs text-destructive">{errors.state}</p>}
+              </div>
+            </div>
+          )}
+
+          <Button className="w-full" onClick={handleShippingSubmit} disabled={loadingAddresses}>
             Continue to Payment
           </Button>
         </div>
@@ -420,9 +579,15 @@ export default function Checkout() {
               <button onClick={() => setStep(2)} className="text-xs text-accent hover:underline">Edit</button>
             </div>
             <p className="text-sm">{shipping.fullName}</p>
-            <p className="text-sm text-muted-foreground">
-              {shipping.street}, {shipping.city}, {shipping.state} — {shipping.pincode}
-            </p>
+            {addressMode === 'saved' && selectedAddress ? (
+              <p className="text-sm text-muted-foreground">
+                {selectedAddress.street}, {selectedAddress.city}, {selectedAddress.state} — {selectedAddress.zip}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {shipping.street}, {shipping.city}, {shipping.state} — {shipping.pincode}
+              </p>
+            )}
             <p className="text-sm text-muted-foreground">+91 {shipping.phone}</p>
           </div>
 
