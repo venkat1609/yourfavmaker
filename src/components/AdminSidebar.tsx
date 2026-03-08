@@ -34,19 +34,34 @@ export function AdminSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-xs uppercase tracking-wider">
-            {!collapsed && 'Admin'}
+            {!collapsed && 'Main'}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
+              {mainItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      end={item.url === '/admin'}
-                      className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
-                      activeClassName="bg-muted text-foreground font-medium"
-                    >
+                    <NavLink to={item.url} end={item.url === '/admin'} className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors" activeClassName="bg-muted text-foreground font-medium">
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs uppercase tracking-wider">
+            {!collapsed && 'Catalog'}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {catalogItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink to={item.url} className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors" activeClassName="bg-muted text-foreground font-medium">
                       <item.icon className="h-4 w-4 flex-shrink-0" />
                       {!collapsed && <span>{item.title}</span>}
                     </NavLink>
