@@ -45,8 +45,10 @@ export default function Shop() {
 
   useEffect(() => {
     const cat = searchParams.get('category');
+    const tag = searchParams.get('tag');
     if (cat) setSelectedCategories([cat]);
     else setSelectedCategories([]);
+    setSelectedTag(tag);
   }, [searchParams]);
 
   const { data: allProducts = [], isLoading } = useQuery({
