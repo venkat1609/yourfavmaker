@@ -195,12 +195,11 @@ async function handleCreate(
 }
 
 async function handleVerify(
-  _req: Request,
+  body: any,
   supabase: any,
   user: any,
   razorpayKeySecret: string
 ) {
-  const body = await _req.clone().json();
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature, order_id } = body;
 
   // Verify signature using HMAC SHA256
