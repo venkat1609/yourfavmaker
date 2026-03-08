@@ -127,6 +127,12 @@ export default function Shop() {
     return result;
   }, [allProducts, selectedCategories, search, sort, priceRange, onlyInStock, onlyOnSale]);
 
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [selectedCategories, search, sort, priceRange, onlyInStock, onlyOnSale]);
+
+  const { totalPages, getPageItems } = usePagination(filteredProducts, PRODUCTS_PER_PAGE);
+  const paginatedProducts = getPageItems(currentPage);
+
   const activeFilterCount = [
     selectedCategories.length > 0,
     search.trim(),
