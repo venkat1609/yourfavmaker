@@ -77,11 +77,7 @@ export default function Header() {
 function ProfilePopover() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
 
   const { data: profile } = useQuery({
     queryKey: ['profile', user?.id],
@@ -103,25 +99,6 @@ function ProfilePopover() {
     enabled: !!user && open,
   });
 
-  const updateProfile = useMutation({
-    mutationFn: async (updates: { full_name: string; phone: string }) => {
-      const { error } = await supabase.from('profiles').update(updates).eq('user_id', user!.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
-      toast.success('Profile updated');
-      setEditing(false);
-    },
-    onError: () => toast.error('Failed to update'),
-  });
-
-  const startEditing = () => {
-    setName(profile?.full_name || '');
-    setPhone(profile?.phone || '');
-    setEditing(true);
-  };
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -142,37 +119,14 @@ function ProfilePopover() {
                 <p className="text-xs text-muted-foreground truncate">{profile?.email}</p>
               </div>
             </div>
-            {!editing && (
-              <button onClick={startEditing} className="text-muted-foreground hover:text-foreground p-1">
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Edit form */}
-          {editing && (
-            <form
-              onSubmit={e => { e.preventDefault(); updateProfile.mutate({ full_name: name, phone }); }}
-              className="mt-3 space-y-2"
+            <button
+              onClick={() => { setOpen(false); navigate('/profile'); }}
+              className="text-muted-foreground hover:text-foreground p-1"
+              title="Edit profile"
             >
-              <div className="space-y-1">
-                <Label className="text-xs">Name</Label>
-                <Input value={name} onChange={e => setName(e.target.value)} className="h-8 text-sm" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Phone</Label>
-                <Input value={phone} onChange={e => setPhone(e.target.value)} className="h-8 text-sm" placeholder="+91 ..." />
-              </div>
-              <div className="flex gap-2">
-                <Button type="submit" size="sm" className="flex-1 h-7 text-xs" disabled={updateProfile.isPending}>
-                  {updateProfile.isPending ? 'Saving...' : 'Save'}
-                </Button>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => setEditing(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          )}
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
 
         <Separator />
@@ -215,12 +169,6 @@ function ProfilePopover() {
             className="flex items-center gap-2 w-full px-2 py-2 text-sm rounded-sm hover:bg-secondary transition-colors"
           >
             <Package className="h-4 w-4 text-muted-foreground" /> Orders
-          </button>
-          <button
-            onClick={() => { setOpen(false); navigate('/profile'); }}
-            className="flex items-center gap-2 w-full px-2 py-2 text-sm rounded-sm hover:bg-secondary transition-colors"
-          >
-            <User className="h-4 w-4 text-muted-foreground" /> Full Profile
           </button>
           <Separator className="my-1" />
           <button
