@@ -201,7 +201,7 @@ function OrdersTab() {
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <div>
               <p className="text-xs text-muted-foreground">#{order.id.slice(0, 8)} · {format(new Date(order.created_at), 'MMM d, yyyy')}</p>
-              <p className="text-sm">{order.profiles?.full_name || order.profiles?.email || 'Unknown'}</p>
+              <p className="text-sm">{(order as any).profile?.full_name || (order as any).profile?.email || 'Unknown'}</p>
             </div>
             <div className="flex items-center gap-3">
               <Select value={order.status} onValueChange={v => updateStatus.mutate({ id: order.id, status: v })}>
