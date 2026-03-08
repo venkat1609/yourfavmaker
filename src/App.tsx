@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { CartProvider } from "@/hooks/useCart";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import Landing from "@/pages/Landing";
 import Shop from "@/pages/Shop";
 import ProductDetail from "@/pages/ProductDetail";
 import Auth from "@/pages/Auth";
@@ -30,7 +31,8 @@ const App = () => (
               <Header />
               <main className="flex-1">
                 <Routes>
-                  <Route path="/" element={<Shop />} />
+                  <Route path="/" element={<Landing />} />
+                  <Route path="/shop" element={<Shop />} />
                   <Route path="/product/:id" element={<ProductDetail />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
