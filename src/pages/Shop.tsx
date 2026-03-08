@@ -4,7 +4,7 @@ import ProductCard from '@/components/ProductCard';
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
-import { ArrowLeft, Search, SlidersHorizontal, X, ChevronDown, ChevronRight, Tag, DollarSign, PackageCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, Search, SlidersHorizontal, X, ChevronDown, Tag, DollarSign, PackageCheck, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
