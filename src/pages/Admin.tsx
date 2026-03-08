@@ -97,6 +97,7 @@ function ProductsTab() {
             </tbody>
           </table>
         </div>
+        <PaginationControls currentPage={page} totalPages={totalPages} onPageChange={setPage} className="mt-6" />
       )}
     </div>
   );

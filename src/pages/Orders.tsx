@@ -43,12 +43,18 @@ export default function Orders() {
     );
   }
 
-  const OrderList = ({ orders, title }: { orders: typeof activeOrders; title: string }) => (
-    orders.length > 0 ? (
+  const ORDERS_PER_PAGE = 10;
+
+  const OrderList = ({ orders, title }: { orders: typeof activeOrders; title: string }) => {
+    const [page, setPage] = useState(1);
+    const { totalPages, getPageItems } = usePagination(orders, ORDERS_PER_PAGE);
+    const pageOrders = getPageItems(page);
+
+    return orders.length > 0 ? (
       <div className="mb-12">
         <h2 className="text-xl font-heading mb-4">{title}</h2>
         <div className="space-y-4">
-          {orders.map(order => (
+          {pageOrders.map(order => (
             <div key={order.id} className="border rounded-sm p-5 animate-fade-in">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <div>
@@ -57,7 +63,7 @@ export default function Orders() {
                 </div>
                 <div className="flex items-center gap-3">
                   <Badge className={statusColors[order.status] || ''} variant="secondary">{order.status}</Badge>
-                  <span className="text-sm font-medium">${Number(order.total).toFixed(2)}</span>
+                  <span className="text-sm font-medium">₹{Number(order.total).toFixed(2)}</span>
                 </div>
               </div>
               <div className="text-sm text-muted-foreground">
@@ -66,9 +72,10 @@ export default function Orders() {
             </div>
           ))}
         </div>
+        <PaginationControls currentPage={page} totalPages={totalPages} onPageChange={setPage} className="mt-6" />
       </div>
-    ) : null
-  );
+    ) : null;
+  };
 
   return (
     <div className="container py-12 animate-fade-in">
