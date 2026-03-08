@@ -33,6 +33,8 @@ export default function Shop() {
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [onlyInStock, setOnlyInStock] = useState(false);
   const [onlyOnSale, setOnlyOnSale] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PRODUCTS_PER_PAGE = 12;
 
   // Collapsible section states
   const [catOpen, setCatOpen] = useState(true);
