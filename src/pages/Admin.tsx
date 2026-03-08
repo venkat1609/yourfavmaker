@@ -126,6 +126,9 @@ interface VariantRow {
   is_active: boolean;
 }
 
+const PRODUCT_CATEGORIES = ['Clothing', 'Accessories', 'Home', 'Wellness'];
+const PRODUCT_TAGS = ['Best Sellers', 'Summer Fest', 'Winter Wears', 'New Arrivals'];
+
 function ProductFormDialog({ product }: { product?: any }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -136,6 +139,7 @@ function ProductFormDialog({ product }: { product?: any }) {
     price: product?.price?.toString() || '',
     compare_at_price: product?.compare_at_price?.toString() || '',
     category: product?.category || '',
+    tags: (product?.tags as string[]) || [],
     stock: product?.stock?.toString() || '0',
     image_url: product?.image_url || '',
     is_active: product?.is_active ?? true,
