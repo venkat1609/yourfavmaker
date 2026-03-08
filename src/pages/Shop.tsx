@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import ProductCard from '@/components/ProductCard';
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { ArrowLeft, Search, SlidersHorizontal, X, ChevronDown, ChevronRight, Tag, DollarSign, PackageCheck, Sparkles } from 'lucide-react';
+import { PaginationControls, usePagination } from '@/components/PaginationControls';
+import { ArrowLeft, Search, SlidersHorizontal, X, ChevronDown, Tag, DollarSign, PackageCheck, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
@@ -32,6 +33,8 @@ export default function Shop() {
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [onlyInStock, setOnlyInStock] = useState(false);
   const [onlyOnSale, setOnlyOnSale] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PRODUCTS_PER_PAGE = 12;
 
   // Collapsible section states
   const [catOpen, setCatOpen] = useState(true);
@@ -123,6 +126,12 @@ export default function Shop() {
 
     return result;
   }, [allProducts, selectedCategories, search, sort, priceRange, onlyInStock, onlyOnSale]);
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [selectedCategories, search, sort, priceRange, onlyInStock, onlyOnSale]);
+
+  const { totalPages, getPageItems } = usePagination(filteredProducts, PRODUCTS_PER_PAGE);
+  const paginatedProducts = getPageItems(currentPage);
 
   const activeFilterCount = [
     selectedCategories.length > 0,
@@ -415,11 +424,19 @@ export default function Shop() {
               )}
             </div>
           ) : (
-            <div className={`grid gap-6 ${sidebarOpen && !isMobile ? 'grid-cols-2 lg:grid-cols-3' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'}`}>
-              {filteredProducts.map(product => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+            <>
+              <div className={`grid gap-6 ${sidebarOpen && !isMobile ? 'grid-cols-2 lg:grid-cols-3' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'}`}>
+                {paginatedProducts.map(product => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                className="mt-10"
+              />
+            </>
           )}
         </div>
       </div>

@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { Plus, Pencil, Package, Users, ShoppingCart, Trash2, X } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { PaginationControls, usePagination } from '@/components/PaginationControls';
 
 export default function Admin() {
   const { isAdmin, loading } = useAuth();
@@ -41,6 +42,8 @@ export default function Admin() {
 
 function ProductsTab() {
   const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['admin-products'],
     queryFn: async () => {
@@ -58,6 +61,9 @@ function ProductsTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-products'] }),
   });
 
+  const { totalPages, getPageItems } = usePagination(products, ITEMS_PER_PAGE);
+  const pageProducts = getPageItems(page);
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -67,30 +73,33 @@ function ProductsTab() {
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-16 bg-secondary rounded-sm animate-pulse" />)}</div>
       ) : (
-        <div className="border rounded-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b bg-muted/50"><th className="text-left p-3 font-medium">Product</th><th className="text-left p-3 font-medium hidden md:table-cell">Category</th><th className="text-right p-3 font-medium">Price</th><th className="text-right p-3 font-medium hidden md:table-cell">Stock</th><th className="text-center p-3 font-medium">Active</th><th className="p-3"></th></tr></thead>
-            <tbody>
-              {products.map(p => (
-                <tr key={p.id} className="border-b last:border-0">
-                  <td className="p-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 bg-secondary rounded-sm overflow-hidden flex-shrink-0">
-                        {p.image_url && <img src={p.image_url} alt="" className="h-full w-full object-cover" />}
+        <>
+          <div className="border rounded-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b bg-muted/50"><th className="text-left p-3 font-medium">Product</th><th className="text-left p-3 font-medium hidden md:table-cell">Category</th><th className="text-right p-3 font-medium">Price</th><th className="text-right p-3 font-medium hidden md:table-cell">Stock</th><th className="text-center p-3 font-medium">Active</th><th className="p-3"></th></tr></thead>
+              <tbody>
+                {pageProducts.map(p => (
+                  <tr key={p.id} className="border-b last:border-0">
+                    <td className="p-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 bg-secondary rounded-sm overflow-hidden flex-shrink-0">
+                          {p.image_url && <img src={p.image_url} alt="" className="h-full w-full object-cover" />}
+                        </div>
+                        <span className="font-medium">{p.name}</span>
                       </div>
-                      <span className="font-medium">{p.name}</span>
-                    </div>
-                  </td>
-                  <td className="p-3 hidden md:table-cell text-muted-foreground">{p.category || '-'}</td>
-                  <td className="p-3 text-right">${Number(p.price).toFixed(2)}</td>
-                  <td className="p-3 text-right hidden md:table-cell">{p.stock}</td>
-                  <td className="p-3 text-center"><Switch checked={p.is_active} onCheckedChange={v => toggleActive.mutate({ id: p.id, is_active: v })} /></td>
-                  <td className="p-3"><ProductFormDialog product={p} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    </td>
+                    <td className="p-3 hidden md:table-cell text-muted-foreground">{p.category || '-'}</td>
+                    <td className="p-3 text-right">₹{Number(p.price).toFixed(2)}</td>
+                    <td className="p-3 text-right hidden md:table-cell">{p.stock}</td>
+                    <td className="p-3 text-center"><Switch checked={p.is_active} onCheckedChange={v => toggleActive.mutate({ id: p.id, is_active: v })} /></td>
+                    <td className="p-3"><ProductFormDialog product={p} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <PaginationControls currentPage={page} totalPages={totalPages} onPageChange={setPage} className="mt-6" />
+        </>
       )}
     </div>
   );
@@ -489,6 +498,8 @@ function ProductFormDialog({ product }: { product?: any }) {
 function OrdersTab() {
   const queryClient = useQueryClient();
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const ORDERS_PER_PAGE = 10;
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['admin-orders'],
@@ -510,11 +521,14 @@ function OrdersTab() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-orders'] }); toast.success('Status updated'); },
   });
 
+  const { totalPages, getPageItems } = usePagination(orders, ORDERS_PER_PAGE);
+  const pageOrders = getPageItems(page);
+
   if (isLoading) return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 bg-secondary rounded-sm animate-pulse" />)}</div>;
 
   return (
     <div className="space-y-4">
-      {orders.map((order: any) => {
+      {pageOrders.map((order: any) => {
         const isExpanded = expandedOrder === order.id;
         const shipping = order.shipping_address as Record<string, string> | null;
         return (
@@ -632,11 +646,15 @@ function OrdersTab() {
         );
       })}
       {orders.length === 0 && <p className="text-muted-foreground text-center py-8">No orders yet</p>}
+      <PaginationControls currentPage={page} totalPages={totalPages} onPageChange={setPage} className="mt-4" />
     </div>
   );
 }
 
 function UsersTab() {
+  const [page, setPage] = useState(1);
+  const USERS_PER_PAGE = 15;
+
   const { data: profiles = [], isLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
@@ -646,23 +664,29 @@ function UsersTab() {
     },
   });
 
+  const { totalPages, getPageItems } = usePagination(profiles, USERS_PER_PAGE);
+  const pageProfiles = getPageItems(page);
+
   if (isLoading) return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-12 bg-secondary rounded-sm animate-pulse" />)}</div>;
 
   return (
-    <div className="border rounded-sm overflow-hidden">
-      <table className="w-full text-sm">
-        <thead><tr className="border-b bg-muted/50"><th className="text-left p-3 font-medium">Name</th><th className="text-left p-3 font-medium">Email</th><th className="text-left p-3 font-medium hidden md:table-cell">Joined</th></tr></thead>
-        <tbody>
-          {profiles.map(p => (
-            <tr key={p.id} className="border-b last:border-0">
-              <td className="p-3">{p.full_name || '-'}</td>
-              <td className="p-3 text-muted-foreground">{p.email}</td>
-              <td className="p-3 text-muted-foreground hidden md:table-cell">{format(new Date(p.created_at), 'MMM d, yyyy')}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {profiles.length === 0 && <p className="text-center py-8 text-muted-foreground">No users yet</p>}
-    </div>
+    <>
+      <div className="border rounded-sm overflow-hidden">
+        <table className="w-full text-sm">
+          <thead><tr className="border-b bg-muted/50"><th className="text-left p-3 font-medium">Name</th><th className="text-left p-3 font-medium">Email</th><th className="text-left p-3 font-medium hidden md:table-cell">Joined</th></tr></thead>
+          <tbody>
+            {pageProfiles.map(p => (
+              <tr key={p.id} className="border-b last:border-0">
+                <td className="p-3">{p.full_name || '-'}</td>
+                <td className="p-3 text-muted-foreground">{p.email}</td>
+                <td className="p-3 text-muted-foreground hidden md:table-cell">{format(new Date(p.created_at), 'MMM d, yyyy')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {profiles.length === 0 && <p className="text-center py-8 text-muted-foreground">No users yet</p>}
+      </div>
+      <PaginationControls currentPage={page} totalPages={totalPages} onPageChange={setPage} className="mt-6" />
+    </>
   );
 }
