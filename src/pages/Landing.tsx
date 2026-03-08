@@ -61,7 +61,7 @@ export default function Landing() {
           title="Best Sellers"
           subtitle="Our most loved pieces, chosen by you"
           products={getByTag('Best Sellers')}
-          category="Best Sellers"
+          tag="Best Sellers"
         />
       )}
 
