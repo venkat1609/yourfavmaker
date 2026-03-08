@@ -122,7 +122,7 @@ export default function Landing() {
           title="New Arrivals"
           subtitle="Fresh finds, just landed"
           products={getByTag('New Arrivals')}
-          category="New Arrivals"
+          tag="New Arrivals"
         />
       )}
 
