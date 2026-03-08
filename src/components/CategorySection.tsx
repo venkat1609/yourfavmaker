@@ -7,7 +7,7 @@ interface Props {
   title: string;
   subtitle?: string;
   products: Tables<'products'>[];
-  category: string;
+  tag: string;
 }
 
 export default function CategorySection({ title, subtitle, products, category }: Props) {
