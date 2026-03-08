@@ -652,6 +652,9 @@ function OrdersTab() {
 }
 
 function UsersTab() {
+  const [page, setPage] = useState(1);
+  const USERS_PER_PAGE = 15;
+
   const { data: profiles = [], isLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
@@ -661,23 +664,29 @@ function UsersTab() {
     },
   });
 
+  const { totalPages, getPageItems } = usePagination(profiles, USERS_PER_PAGE);
+  const pageProfiles = getPageItems(page);
+
   if (isLoading) return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-12 bg-secondary rounded-sm animate-pulse" />)}</div>;
 
   return (
-    <div className="border rounded-sm overflow-hidden">
-      <table className="w-full text-sm">
-        <thead><tr className="border-b bg-muted/50"><th className="text-left p-3 font-medium">Name</th><th className="text-left p-3 font-medium">Email</th><th className="text-left p-3 font-medium hidden md:table-cell">Joined</th></tr></thead>
-        <tbody>
-          {profiles.map(p => (
-            <tr key={p.id} className="border-b last:border-0">
-              <td className="p-3">{p.full_name || '-'}</td>
-              <td className="p-3 text-muted-foreground">{p.email}</td>
-              <td className="p-3 text-muted-foreground hidden md:table-cell">{format(new Date(p.created_at), 'MMM d, yyyy')}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {profiles.length === 0 && <p className="text-center py-8 text-muted-foreground">No users yet</p>}
-    </div>
+    <>
+      <div className="border rounded-sm overflow-hidden">
+        <table className="w-full text-sm">
+          <thead><tr className="border-b bg-muted/50"><th className="text-left p-3 font-medium">Name</th><th className="text-left p-3 font-medium">Email</th><th className="text-left p-3 font-medium hidden md:table-cell">Joined</th></tr></thead>
+          <tbody>
+            {pageProfiles.map(p => (
+              <tr key={p.id} className="border-b last:border-0">
+                <td className="p-3">{p.full_name || '-'}</td>
+                <td className="p-3 text-muted-foreground">{p.email}</td>
+                <td className="p-3 text-muted-foreground hidden md:table-cell">{format(new Date(p.created_at), 'MMM d, yyyy')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {profiles.length === 0 && <p className="text-center py-8 text-muted-foreground">No users yet</p>}
+      </div>
+      <PaginationControls currentPage={page} totalPages={totalPages} onPageChange={setPage} className="mt-6" />
+    </>
   );
 }
