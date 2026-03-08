@@ -77,7 +77,7 @@ function ProductsTab() {
           <table className="w-full text-sm">
             <thead><tr className="border-b bg-muted/50"><th className="text-left p-3 font-medium">Product</th><th className="text-left p-3 font-medium hidden md:table-cell">Category</th><th className="text-right p-3 font-medium">Price</th><th className="text-right p-3 font-medium hidden md:table-cell">Stock</th><th className="text-center p-3 font-medium">Active</th><th className="p-3"></th></tr></thead>
             <tbody>
-              {products.map(p => (
+              {pageProducts.map(p => (
                 <tr key={p.id} className="border-b last:border-0">
                   <td className="p-3">
                     <div className="flex items-center gap-3">
