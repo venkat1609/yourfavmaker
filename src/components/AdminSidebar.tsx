@@ -1,4 +1,4 @@
-import { Package, ShoppingCart, Users, Settings, LayoutDashboard, ArrowLeft } from 'lucide-react';
+import { Package, ShoppingCart, Users, LayoutDashboard, ArrowLeft, FolderOpen, Tag } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import {
   Sidebar,
@@ -13,12 +13,16 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 
-const navItems = [
+const mainItems = [
   { title: 'Overview', url: '/admin', icon: LayoutDashboard },
   { title: 'Products', url: '/admin/products', icon: Package },
   { title: 'Orders', url: '/admin/orders', icon: ShoppingCart },
   { title: 'Customers', url: '/admin/customers', icon: Users },
-  { title: 'Settings', url: '/admin/settings', icon: Settings },
+];
+
+const catalogItems = [
+  { title: 'Categories', url: '/admin/categories', icon: FolderOpen },
+  { title: 'Tags', url: '/admin/tags', icon: Tag },
 ];
 
 export function AdminSidebar() {
