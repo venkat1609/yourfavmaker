@@ -4,7 +4,7 @@ interface Props {
   title: string;
   subtitle: string;
   image: string;
-  category: string;
+  tag: string;
   align?: 'left' | 'right';
 }
 
