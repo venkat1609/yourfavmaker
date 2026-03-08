@@ -9,12 +9,6 @@ import summerImg from '@/assets/cat-summer.jpg';
 import winterImg from '@/assets/cat-winter.jpg';
 import newImg from '@/assets/cat-new.jpg';
 
-const SECTIONS = [
-  { category: 'Best Sellers', title: 'Best Sellers', subtitle: 'Our most loved pieces, chosen by you' },
-  { category: 'Summer Fest', title: 'Summer Fest', subtitle: 'Light, breezy essentials for warmer days' },
-  { category: 'Winter Wears', title: 'Winter Wears', subtitle: 'Cozy layers for the colder months' },
-  { category: 'New Arrivals', title: 'New Arrivals', subtitle: 'Fresh finds, just landed' },
-];
 
 export default function Landing() {
   const { data: products = [], isLoading } = useQuery({
