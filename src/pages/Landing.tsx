@@ -80,7 +80,7 @@ export default function Landing() {
         <CategorySection
           title="Summer Fest"
           subtitle="Light, breezy essentials for warmer days"
-          products={getByCategory('Summer Fest')}
+          products={getByTag('Summer Fest')}
           category="Summer Fest"
         />
       )}
