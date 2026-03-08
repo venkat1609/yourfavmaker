@@ -151,6 +151,7 @@ async function handleCreate(
       total: totalInr,
       status: "pending",
       razorpay_order_id: razorpayOrder.id,
+      shipping_address: shippingAddress || null,
     })
     .select()
     .single();
