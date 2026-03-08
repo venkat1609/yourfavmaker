@@ -61,6 +61,9 @@ function ProductsTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-products'] }),
   });
 
+  const { totalPages, getPageItems } = usePagination(products, ITEMS_PER_PAGE);
+  const pageProducts = getPageItems(page);
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
