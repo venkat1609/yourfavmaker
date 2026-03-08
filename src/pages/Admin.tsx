@@ -528,7 +528,7 @@ function OrdersTab() {
 
   return (
     <div className="space-y-4">
-      {orders.map((order: any) => {
+      {pageOrders.map((order: any) => {
         const isExpanded = expandedOrder === order.id;
         const shipping = order.shipping_address as Record<string, string> | null;
         return (
