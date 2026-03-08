@@ -102,7 +102,7 @@ export default function Landing() {
           title="Winter Wears"
           subtitle="Cozy layers for the colder months"
           products={getByTag('Winter Wears')}
-          category="Winter Wears"
+          tag="Winter Wears"
         />
       )}
 
