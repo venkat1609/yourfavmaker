@@ -278,6 +278,7 @@ function ProductFormDialog({ product }: { product?: any }) {
         price: parseFloat(form.price),
         compare_at_price: form.compare_at_price ? parseFloat(form.compare_at_price) : null,
         category: form.category || null,
+        tags: form.tags,
         stock: parseInt(form.stock),
         image_url: form.image_url || null,
         is_active: form.is_active,
