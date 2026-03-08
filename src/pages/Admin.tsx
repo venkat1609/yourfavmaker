@@ -174,9 +174,13 @@ function OrdersTab() {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['admin-orders'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('orders').select('*, order_items(*), profiles!inner(full_name, email)').order('created_at', { ascending: false });
+      const { data: ordersData, error } = await supabase.from('orders').select('*, order_items(*)').order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      // Fetch profiles for all unique user_ids
+      const userIds = [...new Set((ordersData || []).map(o => o.user_id))];
+      const { data: profilesData } = await supabase.from('profiles').select('user_id, full_name, email').in('user_id', userIds);
+      const profileMap = new Map((profilesData || []).map(p => [p.user_id, p]));
+      return (ordersData || []).map(o => ({ ...o, profile: profileMap.get(o.user_id) || null }));
     },
   });
 
