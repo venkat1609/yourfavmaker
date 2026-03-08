@@ -1,10 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import ProductCard from '@/components/ProductCard';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 
 export default function Shop() {
-  const [category, setCategory] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const initialCategory = searchParams.get('category');
+  const [category, setCategory] = useState<string | null>(initialCategory);
+
+  useEffect(() => {
+    setCategory(searchParams.get('category'));
+  }, [searchParams]);
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['products', category],
@@ -28,13 +36,18 @@ export default function Shop() {
 
   return (
     <div className="container py-12">
-      <div className="mb-12 text-center">
-        <h1 className="text-4xl font-heading mb-3">Shop</h1>
-        <p className="text-muted-foreground">Thoughtfully curated essentials</p>
+      <div className="mb-8">
+        <Link to="/" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Home
+        </Link>
+        <h1 className="text-4xl font-heading mb-3">{category || 'All Products'}</h1>
+        <p className="text-muted-foreground">
+          {category ? `Browse our ${category.toLowerCase()} collection` : 'Thoughtfully curated essentials'}
+        </p>
       </div>
 
       {categories.length > 0 && (
-        <div className="flex flex-wrap justify-center gap-2 mb-10">
+        <div className="flex flex-wrap gap-2 mb-10">
           <button
             onClick={() => setCategory(null)}
             className={`px-4 py-1.5 text-xs uppercase tracking-wider rounded-sm transition-colors ${!category ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
@@ -65,8 +78,8 @@ export default function Shop() {
         </div>
       ) : products.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">
-          <p className="text-lg">No products yet</p>
-          <p className="text-sm mt-1">Check back soon</p>
+          <p className="text-lg">No products found</p>
+          <p className="text-sm mt-1">Try a different category</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
