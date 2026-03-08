@@ -314,12 +314,14 @@ export default function Shop() {
           <ArrowLeft className="h-4 w-4" /> Home
         </Link>
         <h1 className="text-4xl font-heading mb-3">
-          {selectedCategories.length === 1 ? selectedCategories[0] : 'All Products'}
+          {selectedTag ? selectedTag : selectedCategories.length === 1 ? selectedCategories[0] : 'All Products'}
         </h1>
         <p className="text-muted-foreground">
-          {selectedCategories.length === 1
-            ? `Browse our ${selectedCategories[0].toLowerCase()} collection`
-            : 'Thoughtfully curated essentials'}
+          {selectedTag
+            ? `Browse our ${selectedTag.toLowerCase()} collection`
+            : selectedCategories.length === 1
+              ? `Browse our ${selectedCategories[0].toLowerCase()} collection`
+              : 'Thoughtfully curated essentials'}
         </p>
       </div>
 
