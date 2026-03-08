@@ -49,11 +49,14 @@ Deno.serve(async (req) => {
 
     const { action } = await req.json();
 
-    if (action === "create") {
-      return await handleCreate(req, supabase, user, razorpayKeyId, razorpayKeySecret);
-    } else if (action === "verify") {
-      return await handleVerify(req, supabase, user, razorpayKeySecret);
-    }
+  const body = await req.json();
+  const { action, shipping_address } = body;
+
+  if (action === "create") {
+    return await handleCreate(supabase, user, razorpayKeyId, razorpayKeySecret, shipping_address);
+  } else if (action === "verify") {
+    return await handleVerify(body, supabase, user, razorpayKeySecret);
+  }
 
     return new Response(JSON.stringify({ error: "Invalid action" }), {
       status: 400,
