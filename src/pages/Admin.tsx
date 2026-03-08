@@ -73,31 +73,33 @@ function ProductsTab() {
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-16 bg-secondary rounded-sm animate-pulse" />)}</div>
       ) : (
-        <div className="border rounded-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b bg-muted/50"><th className="text-left p-3 font-medium">Product</th><th className="text-left p-3 font-medium hidden md:table-cell">Category</th><th className="text-right p-3 font-medium">Price</th><th className="text-right p-3 font-medium hidden md:table-cell">Stock</th><th className="text-center p-3 font-medium">Active</th><th className="p-3"></th></tr></thead>
-            <tbody>
-              {pageProducts.map(p => (
-                <tr key={p.id} className="border-b last:border-0">
-                  <td className="p-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 bg-secondary rounded-sm overflow-hidden flex-shrink-0">
-                        {p.image_url && <img src={p.image_url} alt="" className="h-full w-full object-cover" />}
+        <>
+          <div className="border rounded-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b bg-muted/50"><th className="text-left p-3 font-medium">Product</th><th className="text-left p-3 font-medium hidden md:table-cell">Category</th><th className="text-right p-3 font-medium">Price</th><th className="text-right p-3 font-medium hidden md:table-cell">Stock</th><th className="text-center p-3 font-medium">Active</th><th className="p-3"></th></tr></thead>
+              <tbody>
+                {pageProducts.map(p => (
+                  <tr key={p.id} className="border-b last:border-0">
+                    <td className="p-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 bg-secondary rounded-sm overflow-hidden flex-shrink-0">
+                          {p.image_url && <img src={p.image_url} alt="" className="h-full w-full object-cover" />}
+                        </div>
+                        <span className="font-medium">{p.name}</span>
                       </div>
-                      <span className="font-medium">{p.name}</span>
-                    </div>
-                  </td>
-                  <td className="p-3 hidden md:table-cell text-muted-foreground">{p.category || '-'}</td>
-                  <td className="p-3 text-right">${Number(p.price).toFixed(2)}</td>
-                  <td className="p-3 text-right hidden md:table-cell">{p.stock}</td>
-                  <td className="p-3 text-center"><Switch checked={p.is_active} onCheckedChange={v => toggleActive.mutate({ id: p.id, is_active: v })} /></td>
-                  <td className="p-3"><ProductFormDialog product={p} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <PaginationControls currentPage={page} totalPages={totalPages} onPageChange={setPage} className="mt-6" />
+                    </td>
+                    <td className="p-3 hidden md:table-cell text-muted-foreground">{p.category || '-'}</td>
+                    <td className="p-3 text-right">₹{Number(p.price).toFixed(2)}</td>
+                    <td className="p-3 text-right hidden md:table-cell">{p.stock}</td>
+                    <td className="p-3 text-center"><Switch checked={p.is_active} onCheckedChange={v => toggleActive.mutate({ id: p.id, is_active: v })} /></td>
+                    <td className="p-3"><ProductFormDialog product={p} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <PaginationControls currentPage={page} totalPages={totalPages} onPageChange={setPage} className="mt-6" />
+        </>
       )}
     </div>
   );
