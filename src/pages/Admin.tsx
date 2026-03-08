@@ -368,8 +368,37 @@ function ProductFormDialog({ product }: { product?: any }) {
                 <div className="space-y-2"><Label>Compare At</Label><Input type="number" step="0.01" value={form.compare_at_price} onChange={e => setForm({ ...form, compare_at_price: e.target.value })} /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2"><Label>Category</Label><Input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} /></div>
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                    <SelectContent>
+                      {PRODUCT_CATEGORIES.map(cat => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-2"><Label>Base Stock</Label><Input type="number" value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} /></div>
+              </div>
+              <div className="space-y-2">
+                <Label>Tags</Label>
+                <div className="flex flex-wrap gap-2">
+                  {PRODUCT_TAGS.map(tag => (
+                    <label key={tag} className="flex items-center gap-1.5 cursor-pointer">
+                      <Checkbox
+                        checked={form.tags.includes(tag)}
+                        onCheckedChange={(checked) => {
+                          setForm(prev => ({
+                            ...prev,
+                            tags: checked ? [...prev.tags, tag] : prev.tags.filter(t => t !== tag),
+                          }));
+                        }}
+                      />
+                      <span className="text-sm">{tag}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
               <div className="space-y-2"><Label>Image URL</Label><Input value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })} /></div>
             </div>
