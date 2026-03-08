@@ -81,7 +81,7 @@ export default function Landing() {
           title="Summer Fest"
           subtitle="Light, breezy essentials for warmer days"
           products={getByTag('Summer Fest')}
-          category="Summer Fest"
+          tag="Summer Fest"
         />
       )}
 
