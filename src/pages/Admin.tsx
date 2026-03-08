@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { Plus, Pencil, Package, Users, ShoppingCart, Trash2, X } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Navigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
@@ -126,6 +127,9 @@ interface VariantRow {
   is_active: boolean;
 }
 
+const PRODUCT_CATEGORIES = ['Clothing', 'Accessories', 'Home', 'Wellness'];
+const PRODUCT_TAGS = ['Best Sellers', 'Summer Fest', 'Winter Wears', 'New Arrivals'];
+
 function ProductFormDialog({ product }: { product?: any }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -136,6 +140,7 @@ function ProductFormDialog({ product }: { product?: any }) {
     price: product?.price?.toString() || '',
     compare_at_price: product?.compare_at_price?.toString() || '',
     category: product?.category || '',
+    tags: (product?.tags as string[]) || [],
     stock: product?.stock?.toString() || '0',
     image_url: product?.image_url || '',
     is_active: product?.is_active ?? true,
@@ -274,6 +279,7 @@ function ProductFormDialog({ product }: { product?: any }) {
         price: parseFloat(form.price),
         compare_at_price: form.compare_at_price ? parseFloat(form.compare_at_price) : null,
         category: form.category || null,
+        tags: form.tags,
         stock: parseInt(form.stock),
         image_url: form.image_url || null,
         is_active: form.is_active,
@@ -363,8 +369,37 @@ function ProductFormDialog({ product }: { product?: any }) {
                 <div className="space-y-2"><Label>Compare At</Label><Input type="number" step="0.01" value={form.compare_at_price} onChange={e => setForm({ ...form, compare_at_price: e.target.value })} /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2"><Label>Category</Label><Input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} /></div>
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                    <SelectContent>
+                      {PRODUCT_CATEGORIES.map(cat => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-2"><Label>Base Stock</Label><Input type="number" value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} /></div>
+              </div>
+              <div className="space-y-2">
+                <Label>Tags</Label>
+                <div className="flex flex-wrap gap-2">
+                  {PRODUCT_TAGS.map(tag => (
+                    <label key={tag} className="flex items-center gap-1.5 cursor-pointer">
+                      <Checkbox
+                        checked={form.tags.includes(tag)}
+                        onCheckedChange={(checked) => {
+                          setForm(prev => ({
+                            ...prev,
+                            tags: checked ? [...prev.tags, tag] : prev.tags.filter(t => t !== tag),
+                          }));
+                        }}
+                      />
+                      <span className="text-sm">{tag}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
               <div className="space-y-2"><Label>Image URL</Label><Input value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })} /></div>
             </div>

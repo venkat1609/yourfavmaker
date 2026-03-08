@@ -9,12 +9,6 @@ import summerImg from '@/assets/cat-summer.jpg';
 import winterImg from '@/assets/cat-winter.jpg';
 import newImg from '@/assets/cat-new.jpg';
 
-const SECTIONS = [
-  { category: 'Best Sellers', title: 'Best Sellers', subtitle: 'Our most loved pieces, chosen by you' },
-  { category: 'Summer Fest', title: 'Summer Fest', subtitle: 'Light, breezy essentials for warmer days' },
-  { category: 'Winter Wears', title: 'Winter Wears', subtitle: 'Cozy layers for the colder months' },
-  { category: 'New Arrivals', title: 'New Arrivals', subtitle: 'Fresh finds, just landed' },
-];
 
 export default function Landing() {
   const { data: products = [], isLoading } = useQuery({
@@ -30,7 +24,7 @@ export default function Landing() {
     },
   });
 
-  const getByCategory = (cat: string) => products.filter(p => p.category === cat);
+  const getByTag = (tag: string) => products.filter(p => (p.tags as string[] | undefined)?.includes(tag));
 
   return (
     <div>
@@ -53,7 +47,7 @@ export default function Landing() {
               <Link to="/shop">
                 <Button size="lg">Shop All</Button>
               </Link>
-              <Link to="/shop?category=New+Arrivals">
+              <Link to="/shop">
                 <Button variant="outline" size="lg">New Arrivals</Button>
               </Link>
             </div>
@@ -66,8 +60,8 @@ export default function Landing() {
         <CategorySection
           title="Best Sellers"
           subtitle="Our most loved pieces, chosen by you"
-          products={getByCategory('Best Sellers')}
-          category="Best Sellers"
+          products={getByTag('Best Sellers')}
+          tag="Best Sellers"
         />
       )}
 
@@ -77,7 +71,7 @@ export default function Landing() {
           title="Summer Fest"
           subtitle="Light linen, straw, and sun-ready essentials. Embrace the warmth with pieces designed for effortless summer days."
           image={summerImg}
-          category="Summer Fest"
+          tag="Summer Fest"
         />
       </div>
 
@@ -86,8 +80,8 @@ export default function Landing() {
         <CategorySection
           title="Summer Fest"
           subtitle="Light, breezy essentials for warmer days"
-          products={getByCategory('Summer Fest')}
-          category="Summer Fest"
+          products={getByTag('Summer Fest')}
+          tag="Summer Fest"
         />
       )}
 
@@ -97,7 +91,7 @@ export default function Landing() {
           title="Winter Wears"
           subtitle="Cashmere, wool, and leather. Luxurious layers to keep you warm through the coldest months."
           image={winterImg}
-          category="Winter Wears"
+          tag="Winter Wears"
           align="right"
         />
       </div>
@@ -107,8 +101,8 @@ export default function Landing() {
         <CategorySection
           title="Winter Wears"
           subtitle="Cozy layers for the colder months"
-          products={getByCategory('Winter Wears')}
-          category="Winter Wears"
+          products={getByTag('Winter Wears')}
+          tag="Winter Wears"
         />
       )}
 
@@ -118,7 +112,7 @@ export default function Landing() {
           title="New Arrivals"
           subtitle="Fresh finds just landed in the shop. From sustainable wellness to artisan home goods."
           image={newImg}
-          category="New Arrivals"
+          tag="New Arrivals"
         />
       </div>
 
@@ -127,25 +121,10 @@ export default function Landing() {
         <CategorySection
           title="New Arrivals"
           subtitle="Fresh finds, just landed"
-          products={getByCategory('New Arrivals')}
-          category="New Arrivals"
+          products={getByTag('New Arrivals')}
+          tag="New Arrivals"
         />
       )}
-
-      {/* Also show remaining categories that aren't featured */}
-      {!isLoading && (() => {
-        const featured = ['Best Sellers', 'Summer Fest', 'Winter Wears', 'New Arrivals'];
-        const others = [...new Set(products.map(p => p.category).filter(c => c && !featured.includes(c!)))];
-        return others.map(cat => (
-          <CategorySection
-            key={cat}
-            title={cat!}
-            subtitle=""
-            products={getByCategory(cat!)}
-            category={cat!}
-          />
-        ));
-      })()}
 
       {/* Loading state */}
       {isLoading && (

@@ -4,14 +4,14 @@ interface Props {
   title: string;
   subtitle: string;
   image: string;
-  category: string;
+  tag: string;
   align?: 'left' | 'right';
 }
 
-export default function CategoryBanner({ title, subtitle, image, category, align = 'left' }: Props) {
+export default function CategoryBanner({ title, subtitle, image, tag, align = 'left' }: Props) {
   return (
     <Link
-      to={`/shop?category=${encodeURIComponent(category)}`}
+      to={`/shop?tag=${encodeURIComponent(tag)}`}
       className="group block overflow-hidden rounded-sm animate-fade-in"
     >
       <div className={`relative flex ${align === 'right' ? 'flex-row-reverse' : 'flex-row'} min-h-[320px] md:min-h-[400px]`}>

@@ -23,9 +23,11 @@ type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'name-asc';
 export default function Shop() {
   const [searchParams] = useSearchParams();
   const initialCategory = searchParams.get('category');
+  const initialTag = searchParams.get('tag');
   const isMobile = useIsMobile();
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>(initialCategory ? [initialCategory] : []);
+  const [selectedTag, setSelectedTag] = useState<string | null>(initialTag);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortOption>('newest');
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -43,8 +45,10 @@ export default function Shop() {
 
   useEffect(() => {
     const cat = searchParams.get('category');
+    const tag = searchParams.get('tag');
     if (cat) setSelectedCategories([cat]);
     else setSelectedCategories([]);
+    setSelectedTag(tag);
   }, [searchParams]);
 
   const { data: allProducts = [], isLoading } = useQuery({
@@ -97,6 +101,10 @@ export default function Shop() {
   const filteredProducts = useMemo(() => {
     let result = [...allProducts];
 
+    if (selectedTag) {
+      result = result.filter(p => (p.tags as string[] | undefined)?.includes(selectedTag));
+    }
+
     if (selectedCategories.length > 0) {
       result = result.filter(p => selectedCategories.includes(p.category || ''));
     }
@@ -125,16 +133,17 @@ export default function Shop() {
     }
 
     return result;
-  }, [allProducts, selectedCategories, search, sort, priceRange, onlyInStock, onlyOnSale]);
+  }, [allProducts, selectedCategories, selectedTag, search, sort, priceRange, onlyInStock, onlyOnSale]);
 
   // Reset page when filters change
-  useEffect(() => { setCurrentPage(1); }, [selectedCategories, search, sort, priceRange, onlyInStock, onlyOnSale]);
+  useEffect(() => { setCurrentPage(1); }, [selectedCategories, selectedTag, search, sort, priceRange, onlyInStock, onlyOnSale]);
 
   const { totalPages, getPageItems } = usePagination(filteredProducts, PRODUCTS_PER_PAGE);
   const paginatedProducts = getPageItems(currentPage);
 
   const activeFilterCount = [
     selectedCategories.length > 0,
+    selectedTag,
     search.trim(),
     priceRange[0] > 0 || priceRange[1] < maxPrice,
     onlyInStock,
@@ -143,6 +152,7 @@ export default function Shop() {
 
   const clearAllFilters = () => {
     setSelectedCategories([]);
+    setSelectedTag(null);
     setSearch('');
     setPriceRange([0, maxPrice]);
     setOnlyInStock(false);
@@ -163,6 +173,12 @@ export default function Shop() {
             </button>
           </div>
           <div className="flex flex-wrap gap-1.5">
+            {selectedTag && (
+              <Badge variant="secondary" className="gap-1 pr-1 text-xs">
+                {selectedTag}
+                <button onClick={() => setSelectedTag(null)} className="hover:text-destructive"><X className="h-3 w-3" /></button>
+              </Badge>
+            )}
             {selectedCategories.map(cat => (
               <Badge key={cat} variant="secondary" className="gap-1 pr-1 text-xs">
                 {cat}
@@ -298,12 +314,14 @@ export default function Shop() {
           <ArrowLeft className="h-4 w-4" /> Home
         </Link>
         <h1 className="text-4xl font-heading mb-3">
-          {selectedCategories.length === 1 ? selectedCategories[0] : 'All Products'}
+          {selectedTag ? selectedTag : selectedCategories.length === 1 ? selectedCategories[0] : 'All Products'}
         </h1>
         <p className="text-muted-foreground">
-          {selectedCategories.length === 1
-            ? `Browse our ${selectedCategories[0].toLowerCase()} collection`
-            : 'Thoughtfully curated essentials'}
+          {selectedTag
+            ? `Browse our ${selectedTag.toLowerCase()} collection`
+            : selectedCategories.length === 1
+              ? `Browse our ${selectedCategories[0].toLowerCase()} collection`
+              : 'Thoughtfully curated essentials'}
         </p>
       </div>
 
