@@ -36,7 +36,7 @@ export default function CategorySection({ title, subtitle, products, tag }: Prop
         </div>
 
         <Link
-          to={`/shop?category=${encodeURIComponent(category)}`}
+          to={`/shop?tag=${encodeURIComponent(tag)}`}
           className="flex sm:hidden items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mt-6"
         >
           View all <ArrowRight className="h-4 w-4" />
