@@ -112,7 +112,7 @@ export default function Landing() {
           title="New Arrivals"
           subtitle="Fresh finds just landed in the shop. From sustainable wellness to artisan home goods."
           image={newImg}
-          category="New Arrivals"
+          tag="New Arrivals"
         />
       </div>
 
