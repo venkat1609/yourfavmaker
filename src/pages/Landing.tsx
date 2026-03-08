@@ -47,7 +47,7 @@ export default function Landing() {
               <Link to="/shop">
                 <Button size="lg">Shop All</Button>
               </Link>
-              <Link to="/shop?category=New+Arrivals">
+              <Link to="/shop">
                 <Button variant="outline" size="lg">New Arrivals</Button>
               </Link>
             </div>
