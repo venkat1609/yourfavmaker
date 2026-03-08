@@ -101,7 +101,7 @@ export default function Landing() {
         <CategorySection
           title="Winter Wears"
           subtitle="Cozy layers for the colder months"
-          products={getByCategory('Winter Wears')}
+          products={getByTag('Winter Wears')}
           category="Winter Wears"
         />
       )}
