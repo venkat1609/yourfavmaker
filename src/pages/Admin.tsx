@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { Plus, Pencil, Package, Users, ShoppingCart, Trash2, X } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { PaginationControls, usePagination } from '@/components/PaginationControls';
 
 export default function Admin() {
   const { isAdmin, loading } = useAuth();
