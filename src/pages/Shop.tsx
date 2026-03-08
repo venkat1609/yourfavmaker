@@ -133,7 +133,7 @@ export default function Shop() {
     }
 
     return result;
-  }, [allProducts, selectedCategories, search, sort, priceRange, onlyInStock, onlyOnSale]);
+  }, [allProducts, selectedCategories, selectedTag, search, sort, priceRange, onlyInStock, onlyOnSale]);
 
   // Reset page when filters change
   useEffect(() => { setCurrentPage(1); }, [selectedCategories, search, sort, priceRange, onlyInStock, onlyOnSale]);
