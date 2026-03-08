@@ -5,6 +5,7 @@ import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import { Minus, Plus, ArrowLeft } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
