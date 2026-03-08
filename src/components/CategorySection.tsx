@@ -10,7 +10,7 @@ interface Props {
   tag: string;
 }
 
-export default function CategorySection({ title, subtitle, products, category }: Props) {
+export default function CategorySection({ title, subtitle, products, tag }: Props) {
   if (products.length === 0) return null;
 
   return (
