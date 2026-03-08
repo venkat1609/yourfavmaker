@@ -173,6 +173,12 @@ export default function Shop() {
             </button>
           </div>
           <div className="flex flex-wrap gap-1.5">
+            {selectedTag && (
+              <Badge variant="secondary" className="gap-1 pr-1 text-xs">
+                {selectedTag}
+                <button onClick={() => setSelectedTag(null)} className="hover:text-destructive"><X className="h-3 w-3" /></button>
+              </Badge>
+            )}
             {selectedCategories.map(cat => (
               <Badge key={cat} variant="secondary" className="gap-1 pr-1 text-xs">
                 {cat}
