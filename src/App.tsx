@@ -14,7 +14,12 @@ import Auth from "@/pages/Auth";
 import Cart from "@/pages/Cart";
 import Orders from "@/pages/Orders";
 import Profile from "@/pages/Profile";
-import Admin from "@/pages/Admin";
+import AdminLayout from "@/components/AdminLayout";
+import AdminOverview from "@/pages/admin/Overview";
+import AdminProducts from "@/pages/admin/Products";
+import AdminOrders from "@/pages/admin/Orders";
+import AdminCustomers from "@/pages/admin/Customers";
+import AdminSettings from "@/pages/admin/Settings";
 import Checkout from "@/pages/Checkout";
 import NotFound from "./pages/NotFound";
 
@@ -40,7 +45,13 @@ const App = () => (
                   <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
                   <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
                   <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-                  <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+                  <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
+                    <Route index element={<AdminOverview />} />
+                    <Route path="products" element={<AdminProducts />} />
+                    <Route path="orders" element={<AdminOrders />} />
+                    <Route path="customers" element={<AdminCustomers />} />
+                    <Route path="settings" element={<AdminSettings />} />
+                  </Route>
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>
