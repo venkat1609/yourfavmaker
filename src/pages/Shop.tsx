@@ -136,7 +136,7 @@ export default function Shop() {
   }, [allProducts, selectedCategories, selectedTag, search, sort, priceRange, onlyInStock, onlyOnSale]);
 
   // Reset page when filters change
-  useEffect(() => { setCurrentPage(1); }, [selectedCategories, search, sort, priceRange, onlyInStock, onlyOnSale]);
+  useEffect(() => { setCurrentPage(1); }, [selectedCategories, selectedTag, search, sort, priceRange, onlyInStock, onlyOnSale]);
 
   const { totalPages, getPageItems } = usePagination(filteredProducts, PRODUCTS_PER_PAGE);
   const paginatedProducts = getPageItems(currentPage);
