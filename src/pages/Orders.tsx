@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { PaginationControls, usePagination } from '@/components/PaginationControls';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-muted text-muted-foreground',
