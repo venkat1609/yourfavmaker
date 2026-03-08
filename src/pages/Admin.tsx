@@ -498,6 +498,8 @@ function ProductFormDialog({ product }: { product?: any }) {
 function OrdersTab() {
   const queryClient = useQueryClient();
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const ORDERS_PER_PAGE = 10;
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['admin-orders'],
@@ -518,6 +520,9 @@ function OrdersTab() {
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-orders'] }); toast.success('Status updated'); },
   });
+
+  const { totalPages, getPageItems } = usePagination(orders, ORDERS_PER_PAGE);
+  const pageOrders = getPageItems(page);
 
   if (isLoading) return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 bg-secondary rounded-sm animate-pulse" />)}</div>;
 
