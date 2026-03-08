@@ -23,9 +23,11 @@ type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'name-asc';
 export default function Shop() {
   const [searchParams] = useSearchParams();
   const initialCategory = searchParams.get('category');
+  const initialTag = searchParams.get('tag');
   const isMobile = useIsMobile();
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>(initialCategory ? [initialCategory] : []);
+  const [selectedTag, setSelectedTag] = useState<string | null>(initialTag);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortOption>('newest');
   const [sidebarOpen, setSidebarOpen] = useState(true);
