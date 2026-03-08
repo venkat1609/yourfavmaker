@@ -60,7 +60,7 @@ export default function Landing() {
         <CategorySection
           title="Best Sellers"
           subtitle="Our most loved pieces, chosen by you"
-          products={getByCategory('Best Sellers')}
+          products={getByTag('Best Sellers')}
           category="Best Sellers"
         />
       )}
