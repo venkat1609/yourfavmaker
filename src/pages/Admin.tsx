@@ -646,6 +646,7 @@ function OrdersTab() {
         );
       })}
       {orders.length === 0 && <p className="text-muted-foreground text-center py-8">No orders yet</p>}
+      <PaginationControls currentPage={page} totalPages={totalPages} onPageChange={setPage} className="mt-4" />
     </div>
   );
 }
