@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { Plus, Pencil, Package, Users, ShoppingCart, Trash2, X } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Navigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
