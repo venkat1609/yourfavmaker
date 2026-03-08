@@ -71,11 +71,11 @@ Deno.serve(async (req) => {
 });
 
 async function handleCreate(
-  _req: Request,
   supabase: any,
   user: any,
   razorpayKeyId: string,
-  razorpayKeySecret: string
+  razorpayKeySecret: string,
+  shippingAddress?: any
 ) {
   // Get user's cart items
   const { data: cartItems, error: cartError } = await supabase
