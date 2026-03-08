@@ -121,25 +121,10 @@ export default function Landing() {
         <CategorySection
           title="New Arrivals"
           subtitle="Fresh finds, just landed"
-          products={getByCategory('New Arrivals')}
+          products={getByTag('New Arrivals')}
           category="New Arrivals"
         />
       )}
-
-      {/* Also show remaining categories that aren't featured */}
-      {!isLoading && (() => {
-        const featured = ['Best Sellers', 'Summer Fest', 'Winter Wears', 'New Arrivals'];
-        const others = [...new Set(products.map(p => p.category).filter(c => c && !featured.includes(c!)))];
-        return others.map(cat => (
-          <CategorySection
-            key={cat}
-            title={cat!}
-            subtitle=""
-            products={getByCategory(cat!)}
-            category={cat!}
-          />
-        ));
-      })()}
 
       {/* Loading state */}
       {isLoading && (
