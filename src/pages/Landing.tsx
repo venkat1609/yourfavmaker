@@ -71,7 +71,7 @@ export default function Landing() {
           title="Summer Fest"
           subtitle="Light linen, straw, and sun-ready essentials. Embrace the warmth with pieces designed for effortless summer days."
           image={summerImg}
-          category="Summer Fest"
+          tag="Summer Fest"
         />
       </div>
 
