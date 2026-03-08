@@ -91,7 +91,7 @@ export default function Landing() {
           title="Winter Wears"
           subtitle="Cashmere, wool, and leather. Luxurious layers to keep you warm through the coldest months."
           image={winterImg}
-          category="Winter Wears"
+          tag="Winter Wears"
           align="right"
         />
       </div>
