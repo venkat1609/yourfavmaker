@@ -18,7 +18,7 @@ export default function Header() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-8 text-sm font-body">
-          <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">Shop</Link>
+          <Link to="/shop" className="text-muted-foreground hover:text-foreground transition-colors">Shop</Link>
           {user && (
             <>
               <Link to="/orders" className="text-muted-foreground hover:text-foreground transition-colors">Orders</Link>
