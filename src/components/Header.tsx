@@ -63,7 +63,7 @@ export default function Header() {
 
       {menuOpen && (
         <div className="md:hidden border-t bg-background p-4 space-y-3 animate-fade-in">
-          <Link to="/" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Shop</Link>
+          <Link to="/shop" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Shop</Link>
           {user && (
             <>
               <Link to="/orders" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Orders</Link>
