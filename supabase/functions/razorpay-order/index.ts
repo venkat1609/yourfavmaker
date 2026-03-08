@@ -49,11 +49,14 @@ Deno.serve(async (req) => {
 
     const { action } = await req.json();
 
-    if (action === "create") {
-      return await handleCreate(req, supabase, user, razorpayKeyId, razorpayKeySecret);
-    } else if (action === "verify") {
-      return await handleVerify(req, supabase, user, razorpayKeySecret);
-    }
+  const body = await req.json();
+  const { action, shipping_address } = body;
+
+  if (action === "create") {
+    return await handleCreate(supabase, user, razorpayKeyId, razorpayKeySecret, shipping_address);
+  } else if (action === "verify") {
+    return await handleVerify(body, supabase, user, razorpayKeySecret);
+  }
 
     return new Response(JSON.stringify({ error: "Invalid action" }), {
       status: 400,
@@ -68,11 +71,11 @@ Deno.serve(async (req) => {
 });
 
 async function handleCreate(
-  _req: Request,
   supabase: any,
   user: any,
   razorpayKeyId: string,
-  razorpayKeySecret: string
+  razorpayKeySecret: string,
+  shippingAddress?: any
 ) {
   // Get user's cart items
   const { data: cartItems, error: cartError } = await supabase
@@ -148,6 +151,7 @@ async function handleCreate(
       total: totalInr,
       status: "pending",
       razorpay_order_id: razorpayOrder.id,
+      shipping_address: shippingAddress || null,
     })
     .select()
     .single();
@@ -191,12 +195,11 @@ async function handleCreate(
 }
 
 async function handleVerify(
-  _req: Request,
+  body: any,
   supabase: any,
   user: any,
   razorpayKeySecret: string
 ) {
-  const body = await _req.clone().json();
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature, order_id } = body;
 
   // Verify signature using HMAC SHA256
