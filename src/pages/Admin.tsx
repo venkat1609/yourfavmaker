@@ -42,6 +42,8 @@ export default function Admin() {
 
 function ProductsTab() {
   const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['admin-products'],
     queryFn: async () => {
