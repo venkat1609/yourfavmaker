@@ -5,6 +5,7 @@ import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import { Minus, Plus, ArrowLeft } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -141,9 +142,9 @@ export default function ProductDetail() {
           </div>
 
           <div className="flex items-baseline gap-3">
-            <span className="text-2xl font-medium">${displayPrice.toFixed(2)}</span>
+            <span className="text-2xl font-medium">₹{displayPrice.toFixed(2)}</span>
             {displayCompareAt && (
-              <span className="text-lg text-muted-foreground line-through">${displayCompareAt.toFixed(2)}</span>
+              <span className="text-lg text-muted-foreground line-through">₹{displayCompareAt.toFixed(2)}</span>
             )}
           </div>
 
@@ -221,6 +222,3 @@ export default function ProductDetail() {
   );
 }
 
-function Label({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <p className={className}>{children}</p>;
-}

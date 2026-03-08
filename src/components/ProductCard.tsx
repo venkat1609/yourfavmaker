@@ -26,10 +26,10 @@ export default function ProductCard({ product }: Props) {
         <p className="text-xs text-muted-foreground uppercase tracking-wider">{product.category || 'General'}</p>
         <h3 className="text-sm font-medium leading-tight">{product.name}</h3>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">${Number(product.price).toFixed(2)}</span>
+          <span className="text-sm font-medium">₹{Number(product.price).toFixed(2)}</span>
           {product.compare_at_price && (
             <span className="text-xs text-muted-foreground line-through">
-              ${Number(product.compare_at_price).toFixed(2)}
+              ₹{Number(product.compare_at_price).toFixed(2)}
             </span>
           )}
         </div>
