@@ -30,7 +30,7 @@ export default function Landing() {
     },
   });
 
-  const getByCategory = (cat: string) => products.filter(p => p.category === cat);
+  const getByTag = (tag: string) => products.filter(p => (p.tags as string[] | undefined)?.includes(tag));
 
   return (
     <div>
