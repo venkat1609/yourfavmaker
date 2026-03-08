@@ -22,7 +22,7 @@ export default function CategorySection({ title, subtitle, products, tag }: Prop
             {subtitle && <p className="text-muted-foreground mt-1 text-sm">{subtitle}</p>}
           </div>
           <Link
-            to={`/shop?category=${encodeURIComponent(category)}`}
+            to={`/shop?tag=${encodeURIComponent(tag)}`}
             className="hidden sm:flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors group"
           >
             View all <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
