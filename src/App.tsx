@@ -19,7 +19,8 @@ import AdminOverview from "@/pages/admin/Overview";
 import AdminProducts from "@/pages/admin/Products";
 import AdminOrders from "@/pages/admin/Orders";
 import AdminCustomers from "@/pages/admin/Customers";
-import AdminSettings from "@/pages/admin/Settings";
+import AdminCategories from "@/pages/admin/Categories";
+import AdminTags from "@/pages/admin/Tags";
 import Checkout from "@/pages/Checkout";
 import NotFound from "./pages/NotFound";
 
@@ -50,7 +51,8 @@ const App = () => (
                     <Route path="products" element={<AdminProducts />} />
                     <Route path="orders" element={<AdminOrders />} />
                     <Route path="customers" element={<AdminCustomers />} />
-                    <Route path="settings" element={<AdminSettings />} />
+                    <Route path="categories" element={<AdminCategories />} />
+                    <Route path="tags" element={<AdminTags />} />
                   </Route>
                   <Route path="*" element={<NotFound />} />
                 </Routes>
