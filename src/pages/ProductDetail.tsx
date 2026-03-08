@@ -141,9 +141,9 @@ export default function ProductDetail() {
           </div>
 
           <div className="flex items-baseline gap-3">
-            <span className="text-2xl font-medium">${displayPrice.toFixed(2)}</span>
+            <span className="text-2xl font-medium">₹{displayPrice.toFixed(2)}</span>
             {displayCompareAt && (
-              <span className="text-lg text-muted-foreground line-through">${displayCompareAt.toFixed(2)}</span>
+              <span className="text-lg text-muted-foreground line-through">₹{displayCompareAt.toFixed(2)}</span>
             )}
           </div>
 
