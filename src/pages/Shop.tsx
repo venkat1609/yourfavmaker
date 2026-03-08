@@ -143,6 +143,7 @@ export default function Shop() {
 
   const activeFilterCount = [
     selectedCategories.length > 0,
+    selectedTag,
     search.trim(),
     priceRange[0] > 0 || priceRange[1] < maxPrice,
     onlyInStock,
@@ -151,6 +152,7 @@ export default function Shop() {
 
   const clearAllFilters = () => {
     setSelectedCategories([]);
+    setSelectedTag(null);
     setSearch('');
     setPriceRange([0, maxPrice]);
     setOnlyInStock(false);
