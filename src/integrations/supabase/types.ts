@@ -306,6 +306,7 @@ export type Database = {
           is_active: boolean
           name: string
           price: number
+          seller_id: string | null
           stock: number
           tags: string[]
           updated_at: string
@@ -320,6 +321,7 @@ export type Database = {
           is_active?: boolean
           name: string
           price: number
+          seller_id?: string | null
           stock?: number
           tags?: string[]
           updated_at?: string
@@ -334,11 +336,20 @@ export type Database = {
           is_active?: boolean
           name?: string
           price?: number
+          seller_id?: string | null
           stock?: number
           tags?: string[]
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "sellers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -370,6 +381,42 @@ export type Database = {
           phone?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      sellers: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          location: string | null
+          logo_url: string | null
+          name: string
+          slug: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          location?: string | null
+          logo_url?: string | null
+          name: string
+          slug: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          location?: string | null
+          logo_url?: string | null
+          name?: string
+          slug?: string
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
