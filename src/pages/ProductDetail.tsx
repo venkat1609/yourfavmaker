@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Minus, Plus, ArrowLeft } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
+import SellerCard from '@/components/SellerCard';
 
 export default function ProductDetail() {
   const { id } = useParams();
