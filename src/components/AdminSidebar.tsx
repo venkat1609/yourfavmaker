@@ -1,4 +1,4 @@
-import { Package, ShoppingCart, Users, LayoutDashboard, ArrowLeft, FolderOpen, Tag } from 'lucide-react';
+import { Package, ShoppingCart, Users, LayoutDashboard, ArrowLeft, FolderOpen, Tag, Store } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import {
   Sidebar,
