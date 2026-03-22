@@ -80,6 +80,16 @@ export default function ProductDetail() {
     }) || null;
   }, [variants, selectedOptions]);
 
+  const { data: seller } = useQuery({
+    queryKey: ['product-seller', product?.seller_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('sellers').select('*').eq('id', product!.seller_id!).single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!product?.seller_id,
+  });
+
   const displayPrice = selectedVariant ? Number(selectedVariant.price) : Number(product?.price || 0);
   const displayCompareAt = selectedVariant?.compare_at_price ? Number(selectedVariant.compare_at_price) : (product?.compare_at_price ? Number(product.compare_at_price) : null);
   const displayStock = selectedVariant ? selectedVariant.stock : (product?.stock || 0);
