@@ -269,6 +269,16 @@ function ProductFormDialog({ product }: { product?: any }) {
                 </div>
               </div>
               <div className="space-y-2"><Label>Image URL</Label><Input value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })} /></div>
+              <div className="space-y-2">
+                <Label>Seller</Label>
+                <Select value={form.seller_id} onValueChange={v => setForm({ ...form, seller_id: v === 'none' ? '' : v })}>
+                  <SelectTrigger><SelectValue placeholder="Select seller" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No seller</SelectItem>
+                    {sellers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </TabsContent>
           <TabsContent value="attributes">
