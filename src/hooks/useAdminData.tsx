@@ -22,3 +22,14 @@ export function useTags() {
     },
   });
 }
+
+export function useSellers() {
+  return useQuery({
+    queryKey: ['admin-sellers'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('sellers').select('*').order('name');
+      if (error) throw error;
+      return data;
+    },
+  });
+}
