@@ -18,7 +18,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="font-heading text-2xl tracking-tight">
-          Maison
+          YourFavMaker
         </Link>
 
         <nav className="hidden md:flex items-center gap-8 text-sm font-body">
