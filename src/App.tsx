@@ -58,7 +58,7 @@ const App = () => (
                 </Routes>
               </main>
               <footer className="border-t py-8 text-center text-xs text-muted-foreground">
-                © {new Date().getFullYear()} Maison. All rights reserved.
+                © {new Date().getFullYear()} YourFavMaker. All rights reserved.
               </footer>
             </div>
           </CartProvider>
