@@ -14,7 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, X, Search } from 'lucide-react';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
-import { useCategories, useTags } from '@/hooks/useAdminData';
+import { useCategories, useTags, useSellers } from '@/hooks/useAdminData';
 
 export default function Products() {
   const queryClient = useQueryClient();
