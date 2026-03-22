@@ -238,7 +238,7 @@ export default function Checkout() {
         key: data.key_id,
         amount: data.amount,
         currency: data.currency,
-        name: 'Maison',
+        name: 'YourFavMaker',
         description: 'Order Payment',
         order_id: data.razorpay_order_id,
         prefill: {
