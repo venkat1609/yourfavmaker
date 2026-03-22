@@ -211,6 +211,7 @@ function ProductFormDialog({ product }: { product?: any }) {
         compare_at_price: form.compare_at_price ? parseFloat(form.compare_at_price) : null,
         category: form.category || null, tags: form.tags, stock: parseInt(form.stock),
         image_url: form.image_url || null, is_active: form.is_active,
+        seller_id: form.seller_id || null,
       };
       let productId = product?.id;
       if (product) { const { error } = await supabase.from('products').update(productData).eq('id', product.id); if (error) throw error; }
