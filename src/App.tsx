@@ -21,7 +21,9 @@ import AdminOrders from "@/pages/admin/Orders";
 import AdminCustomers from "@/pages/admin/Customers";
 import AdminCategories from "@/pages/admin/Categories";
 import AdminTags from "@/pages/admin/Tags";
+import AdminSellers from "@/pages/admin/Sellers";
 import Checkout from "@/pages/Checkout";
+import SellerStorefront from "@/pages/SellerStorefront";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
