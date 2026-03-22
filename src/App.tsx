@@ -21,7 +21,9 @@ import AdminOrders from "@/pages/admin/Orders";
 import AdminCustomers from "@/pages/admin/Customers";
 import AdminCategories from "@/pages/admin/Categories";
 import AdminTags from "@/pages/admin/Tags";
+import AdminSellers from "@/pages/admin/Sellers";
 import Checkout from "@/pages/Checkout";
+import SellerStorefront from "@/pages/SellerStorefront";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,6 +43,7 @@ const App = () => (
                   <Route path="/" element={<Landing />} />
                   <Route path="/shop" element={<Shop />} />
                   <Route path="/product/:id" element={<ProductDetail />} />
+                  <Route path="/seller/:slug" element={<SellerStorefront />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
                   <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
@@ -53,6 +56,7 @@ const App = () => (
                     <Route path="customers" element={<AdminCustomers />} />
                     <Route path="categories" element={<AdminCategories />} />
                     <Route path="tags" element={<AdminTags />} />
+                    <Route path="sellers" element={<AdminSellers />} />
                   </Route>
                   <Route path="*" element={<NotFound />} />
                 </Routes>

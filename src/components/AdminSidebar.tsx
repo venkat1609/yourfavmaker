@@ -1,4 +1,4 @@
-import { Package, ShoppingCart, Users, LayoutDashboard, ArrowLeft, FolderOpen, Tag } from 'lucide-react';
+import { Package, ShoppingCart, Users, LayoutDashboard, ArrowLeft, FolderOpen, Tag, Store } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import {
   Sidebar,
@@ -23,6 +23,7 @@ const mainItems = [
 const catalogItems = [
   { title: 'Categories', url: '/admin/categories', icon: FolderOpen },
   { title: 'Tags', url: '/admin/tags', icon: Tag },
+  { title: 'Sellers', url: '/admin/sellers', icon: Store },
 ];
 
 const navLinkClassName =

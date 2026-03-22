@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Minus, Plus, ArrowLeft } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
+import SellerCard from '@/components/SellerCard';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -78,6 +79,16 @@ export default function ProductDetail() {
       return Object.entries(selectedOptions).every(([key, val]) => opts[key] === val);
     }) || null;
   }, [variants, selectedOptions]);
+
+  const { data: seller } = useQuery({
+    queryKey: ['product-seller', product?.seller_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('sellers').select('*').eq('id', product!.seller_id!).single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!product?.seller_id,
+  });
 
   const displayPrice = selectedVariant ? Number(selectedVariant.price) : Number(product?.price || 0);
   const displayCompareAt = selectedVariant?.compare_at_price ? Number(selectedVariant.compare_at_price) : (product?.compare_at_price ? Number(product.compare_at_price) : null);
@@ -216,6 +227,14 @@ export default function ProductDetail() {
           <p className="text-xs text-muted-foreground">
             {displayStock > 0 ? `${displayStock} in stock` : 'Currently unavailable'}
           </p>
+
+          {/* Seller info */}
+          {seller && (
+            <div className="pt-2">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Sold by</p>
+              <SellerCard seller={seller} />
+            </div>
+          )}
         </div>
       </div>
     </div>

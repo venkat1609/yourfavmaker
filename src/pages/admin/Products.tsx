@@ -14,7 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, X, Search } from 'lucide-react';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
-import { useCategories, useTags } from '@/hooks/useAdminData';
+import { useCategories, useTags, useSellers } from '@/hooks/useAdminData';
 
 export default function Products() {
   const queryClient = useQueryClient();
@@ -157,11 +157,12 @@ function ProductFormDialog({ product }: { product?: any }) {
     price: product?.price?.toString() || '', compare_at_price: product?.compare_at_price?.toString() || '',
     category: product?.category || '', tags: (product?.tags as string[]) || [],
     stock: product?.stock?.toString() || '0', image_url: product?.image_url || '',
-    is_active: product?.is_active ?? true,
+    is_active: product?.is_active ?? true, seller_id: product?.seller_id || '',
   });
 
   const { data: categories = [] } = useCategories();
   const { data: tags = [] } = useTags();
+  const { data: sellers = [] } = useSellers();
   const [attributes, setAttributes] = useState<AttributeRow[]>([]);
   const [variants, setVariants] = useState<VariantRow[]>([]);
 
@@ -210,6 +211,7 @@ function ProductFormDialog({ product }: { product?: any }) {
         compare_at_price: form.compare_at_price ? parseFloat(form.compare_at_price) : null,
         category: form.category || null, tags: form.tags, stock: parseInt(form.stock),
         image_url: form.image_url || null, is_active: form.is_active,
+        seller_id: form.seller_id || null,
       };
       let productId = product?.id;
       if (product) { const { error } = await supabase.from('products').update(productData).eq('id', product.id); if (error) throw error; }
@@ -267,6 +269,16 @@ function ProductFormDialog({ product }: { product?: any }) {
                 </div>
               </div>
               <div className="space-y-2"><Label>Image URL</Label><Input value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })} /></div>
+              <div className="space-y-2">
+                <Label>Seller</Label>
+                <Select value={form.seller_id} onValueChange={v => setForm({ ...form, seller_id: v === 'none' ? '' : v })}>
+                  <SelectTrigger><SelectValue placeholder="Select seller" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No seller</SelectItem>
+                    {sellers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </TabsContent>
           <TabsContent value="attributes">
