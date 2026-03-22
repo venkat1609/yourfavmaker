@@ -23,6 +23,7 @@ const mainItems = [
 const catalogItems = [
   { title: 'Categories', url: '/admin/categories', icon: FolderOpen },
   { title: 'Tags', url: '/admin/tags', icon: Tag },
+  { title: 'Sellers', url: '/admin/sellers', icon: Store },
 ];
 
 const navLinkClassName =

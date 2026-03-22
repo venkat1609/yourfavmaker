@@ -227,6 +227,14 @@ export default function ProductDetail() {
           <p className="text-xs text-muted-foreground">
             {displayStock > 0 ? `${displayStock} in stock` : 'Currently unavailable'}
           </p>
+
+          {/* Seller info */}
+          {seller && (
+            <div className="pt-2">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Sold by</p>
+              <SellerCard seller={seller} />
+            </div>
+          )}
         </div>
       </div>
     </div>
