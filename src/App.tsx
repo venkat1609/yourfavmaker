@@ -24,6 +24,8 @@ import AdminTags from "@/pages/admin/Tags";
 import AdminSellers from "@/pages/admin/Sellers";
 import Checkout from "@/pages/Checkout";
 import SellerStorefront from "@/pages/SellerStorefront";
+import SellerOnboarding from "@/pages/SellerOnboarding";
+import SellerDashboard from "@/pages/SellerDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
