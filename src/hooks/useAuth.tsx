@@ -47,9 +47,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  async function checkAdmin(userId: string) {
-    const { data } = await supabase.rpc('has_role', { _user_id: userId, _role: 'admin' });
-    setIsAdmin(!!data);
+  async function checkRoles(userId: string) {
+    const { data: adminData } = await supabase.rpc('has_role', { _user_id: userId, _role: 'admin' });
+    setIsAdmin(!!adminData);
+    const { data: sellerData } = await supabase.rpc('has_role', { _user_id: userId, _role: 'seller' as any });
+    setIsSeller(!!sellerData);
   }
 
   const signUp = async (email: string, password: string, fullName: string) => {
