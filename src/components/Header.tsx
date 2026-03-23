@@ -26,6 +26,11 @@ export default function Header() {
           {user && (
             <Link to="/orders" className="text-muted-foreground hover:text-foreground transition-colors">Orders</Link>
           )}
+          {isSeller && (
+            <Link to="/seller/dashboard" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+              <Store className="h-3 w-3" /> Seller
+            </Link>
+          )}
           {isAdmin && (
             <Link to="/admin" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
               <Shield className="h-3 w-3" /> Admin
