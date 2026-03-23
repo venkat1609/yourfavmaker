@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Link } from 'react-router-dom';
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, isSeller } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: profile, isLoading: profileLoading } = useQuery({
