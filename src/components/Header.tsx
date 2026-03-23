@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function Header() {
-  const { user, isAdmin, signOut } = useAuth();
+  const { user, isAdmin, isSeller, signOut } = useAuth();
   const { itemCount } = useCart();
   const [menuOpen, setMenuOpen] = useState(false);
 
