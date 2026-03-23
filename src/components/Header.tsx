@@ -180,6 +180,12 @@ function ProfilePopover() {
           >
             <Package className="h-4 w-4 text-muted-foreground" /> Orders
           </button>
+          <button
+            onClick={() => { setOpen(false); navigate('/seller/dashboard'); }}
+            className="flex items-center gap-2 w-full px-2 py-2 text-sm rounded-sm hover:bg-secondary transition-colors"
+          >
+            <Store className="h-4 w-4 text-muted-foreground" /> Seller Dashboard
+          </button>
           <Separator className="my-1" />
           <button
             onClick={() => { signOut(); setOpen(false); }}
