@@ -386,35 +386,68 @@ export type Database = {
       }
       sellers: {
         Row: {
+          address_city: string | null
+          address_country: string | null
+          address_state: string | null
+          address_street: string | null
+          address_zip: string | null
+          bank_account_number: string | null
+          bank_ifsc: string | null
+          bank_name: string | null
           created_at: string
           description: string | null
           id: string
           location: string | null
           logo_url: string | null
           name: string
+          phone: string | null
           slug: string
+          status: string
+          tax_id: string | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
+          address_city?: string | null
+          address_country?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          bank_account_number?: string | null
+          bank_ifsc?: string | null
+          bank_name?: string | null
           created_at?: string
           description?: string | null
           id?: string
           location?: string | null
           logo_url?: string | null
           name: string
+          phone?: string | null
           slug: string
+          status?: string
+          tax_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
+          address_city?: string | null
+          address_country?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          bank_account_number?: string | null
+          bank_ifsc?: string | null
+          bank_name?: string | null
           created_at?: string
           description?: string | null
           id?: string
           location?: string | null
           logo_url?: string | null
           name?: string
+          phone?: string | null
           slug?: string
+          status?: string
+          tax_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -470,7 +503,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "user" | "seller"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -598,7 +631,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "user", "seller"],
     },
   },
 } as const

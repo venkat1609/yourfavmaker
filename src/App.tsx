@@ -24,6 +24,8 @@ import AdminTags from "@/pages/admin/Tags";
 import AdminSellers from "@/pages/admin/Sellers";
 import Checkout from "@/pages/Checkout";
 import SellerStorefront from "@/pages/SellerStorefront";
+import SellerOnboarding from "@/pages/SellerOnboarding";
+import SellerDashboard from "@/pages/SellerDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +45,8 @@ const App = () => (
                   <Route path="/" element={<Landing />} />
                   <Route path="/shop" element={<Shop />} />
                   <Route path="/product/:id" element={<ProductDetail />} />
+                  <Route path="/seller/register" element={<ProtectedRoute><SellerOnboarding /></ProtectedRoute>} />
+                  <Route path="/seller/dashboard" element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>} />
                   <Route path="/seller/:slug" element={<SellerStorefront />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />

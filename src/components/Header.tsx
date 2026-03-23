@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingBag, User, Menu, X, LogOut, Shield, MapPin, Package, Pencil, ChevronRight } from 'lucide-react';
+import { ShoppingBag, User, Menu, X, LogOut, Shield, MapPin, Package, Pencil, ChevronRight, Store } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCart } from '@/hooks/useCart';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function Header() {
-  const { user, isAdmin, signOut } = useAuth();
+  const { user, isAdmin, isSeller, signOut } = useAuth();
   const { itemCount } = useCart();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -25,6 +25,11 @@ export default function Header() {
           <Link to="/shop" className="text-muted-foreground hover:text-foreground transition-colors">Shop</Link>
           {user && (
             <Link to="/orders" className="text-muted-foreground hover:text-foreground transition-colors">Orders</Link>
+          )}
+          {isSeller && (
+            <Link to="/seller/dashboard" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+              <Store className="h-3 w-3" /> Seller
+            </Link>
           )}
           {isAdmin && (
             <Link to="/admin" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
@@ -64,6 +69,9 @@ export default function Header() {
             <>
               <Link to="/orders" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Orders</Link>
               <Link to="/profile" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Profile</Link>
+              {isSeller && (
+                <Link to="/seller/dashboard" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Seller Dashboard</Link>
+              )}
               {isAdmin && (
                 <Link to="/admin" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Admin</Link>
               )}
@@ -171,6 +179,12 @@ function ProfilePopover() {
             className="flex items-center gap-2 w-full px-2 py-2 text-sm rounded-sm hover:bg-secondary transition-colors"
           >
             <Package className="h-4 w-4 text-muted-foreground" /> Orders
+          </button>
+          <button
+            onClick={() => { setOpen(false); navigate('/seller/dashboard'); }}
+            className="flex items-center gap-2 w-full px-2 py-2 text-sm rounded-sm hover:bg-secondary transition-colors"
+          >
+            <Store className="h-4 w-4 text-muted-foreground" /> Seller Dashboard
           </button>
           <Separator className="my-1" />
           <button
