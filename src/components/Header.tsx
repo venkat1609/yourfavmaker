@@ -69,6 +69,9 @@ export default function Header() {
             <>
               <Link to="/orders" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Orders</Link>
               <Link to="/profile" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Profile</Link>
+              {isSeller && (
+                <Link to="/seller/dashboard" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Seller Dashboard</Link>
+              )}
               {isAdmin && (
                 <Link to="/admin" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Admin</Link>
               )}
