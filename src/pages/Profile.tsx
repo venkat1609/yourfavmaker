@@ -34,6 +34,16 @@ export default function Profile() {
     enabled: !!user,
   });
 
+  const { data: sellerProfile } = useQuery({
+    queryKey: ['my-seller', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('sellers').select('id, name, status').eq('user_id', user!.id).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
   const updateProfile = useMutation({
     mutationFn: async (updates: { full_name: string; phone: string }) => {
       const { error } = await supabase.from('profiles').update(updates).eq('user_id', user!.id);
