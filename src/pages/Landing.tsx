@@ -27,7 +27,7 @@ export default function Landing() {
   const getByTag = (tag: string) => products.filter(p => (p.tags as string[] | undefined)?.includes(tag));
 
   return (
-    <div>
+    <div className="space-y-20">
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0">
@@ -55,76 +55,78 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Best Sellers */}
-      {!isLoading && (
-        <CategorySection
-          title="Best Sellers"
-          subtitle="Our most loved pieces, chosen by you"
-          products={getByTag('Best Sellers')}
-          tag="Best Sellers"
-        />
-      )}
+      <div className="space-y-16">
+        {/* Best Sellers */}
+        {!isLoading && (
+          <CategorySection
+            title="Best Sellers"
+            subtitle="Our most loved pieces, chosen by you"
+            products={getByTag('Best Sellers')}
+            tag="Best Sellers"
+          />
+        )}
 
-      {/* Summer Banner */}
-      <div className="container">
-        <CategoryBanner
-          title="Summer Fest"
-          subtitle="Light linen, straw, and sun-ready essentials. Embrace the warmth with pieces designed for effortless summer days."
-          image={summerImg}
-          tag="Summer Fest"
-        />
+        {/* Summer Banner */}
+        <div className="container">
+          <CategoryBanner
+            title="Summer Fest"
+            subtitle="Light linen, straw, and sun-ready essentials. Embrace the warmth with pieces designed for effortless summer days."
+            image={summerImg}
+            tag="Summer Fest"
+          />
+        </div>
+
+        {/* Summer Products */}
+        {!isLoading && (
+          <CategorySection
+            title="Summer Fest"
+            subtitle="Light, breezy essentials for warmer days"
+            products={getByTag('Summer Fest')}
+            tag="Summer Fest"
+          />
+        )}
+
+        {/* Winter Banner */}
+        <div className="container">
+          <CategoryBanner
+            title="Winter Wears"
+            subtitle="Cashmere, wool, and leather. Luxurious layers to keep you warm through the coldest months."
+            image={winterImg}
+            tag="Winter Wears"
+            align="right"
+          />
+        </div>
+
+        {/* Winter Products */}
+        {!isLoading && (
+          <CategorySection
+            title="Winter Wears"
+            subtitle="Cozy layers for the colder months"
+            products={getByTag('Winter Wears')}
+            tag="Winter Wears"
+          />
+        )}
+
+        {/* New Arrivals Banner */}
+        <div className="container">
+          <CategoryBanner
+            title="New Arrivals"
+            subtitle="Fresh finds just landed in the shop. From sustainable wellness to artisan home goods."
+            image={newImg}
+            tag="New Arrivals"
+          />
+        </div>
+
+        {/* New Arrivals Products */}
+        {!isLoading && (
+          <CategorySection
+            title="New Arrivals"
+            subtitle="Fresh finds, just landed"
+            products={getByTag('New Arrivals')}
+            tag="New Arrivals"
+          />
+        )}
       </div>
-
-      {/* Summer Products */}
-      {!isLoading && (
-        <CategorySection
-          title="Summer Fest"
-          subtitle="Light, breezy essentials for warmer days"
-          products={getByTag('Summer Fest')}
-          tag="Summer Fest"
-        />
-      )}
-
-      {/* Winter Banner */}
-      <div className="container">
-        <CategoryBanner
-          title="Winter Wears"
-          subtitle="Cashmere, wool, and leather. Luxurious layers to keep you warm through the coldest months."
-          image={winterImg}
-          tag="Winter Wears"
-          align="right"
-        />
-      </div>
-
-      {/* Winter Products */}
-      {!isLoading && (
-        <CategorySection
-          title="Winter Wears"
-          subtitle="Cozy layers for the colder months"
-          products={getByTag('Winter Wears')}
-          tag="Winter Wears"
-        />
-      )}
-
-      {/* New Arrivals Banner */}
-      <div className="container">
-        <CategoryBanner
-          title="New Arrivals"
-          subtitle="Fresh finds just landed in the shop. From sustainable wellness to artisan home goods."
-          image={newImg}
-          tag="New Arrivals"
-        />
-      </div>
-
-      {/* New Arrivals Products */}
-      {!isLoading && (
-        <CategorySection
-          title="New Arrivals"
-          subtitle="Fresh finds, just landed"
-          products={getByTag('New Arrivals')}
-          tag="New Arrivals"
-        />
-      )}
 
       {/* Loading state */}
       {isLoading && (
