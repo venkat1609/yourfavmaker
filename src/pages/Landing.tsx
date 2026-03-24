@@ -44,10 +44,10 @@ export default function Landing() {
               Objects and garments designed for modern living. Each piece chosen for quality, beauty, and purpose.
             </p>
             <div className="flex gap-3">
-              <Link to="/shop">
-                <Button size="lg">Shop All</Button>
+              <Link to="/products">
+                <Button size="lg">View Products</Button>
               </Link>
-              <Link to="/shop">
+              <Link to="/products">
                 <Button variant="outline" size="lg">New Arrivals</Button>
               </Link>
             </div>

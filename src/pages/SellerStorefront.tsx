@@ -69,8 +69,8 @@ export default function SellerStorefront() {
 
   return (
     <div className="container py-12 animate-fade-in">
-      <Link to="/shop" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
-        <ArrowLeft className="h-4 w-4" /> Back to Shop
+      <Link to="/products" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
+        <ArrowLeft className="h-4 w-4" /> Back to products
       </Link>
 
       {/* Seller header */}

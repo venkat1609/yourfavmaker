@@ -32,10 +32,12 @@ const INDIAN_STATES = [
 interface ShippingForm {
   fullName: string;
   phone: string;
+  label: string;
   street: string;
   city: string;
   state: string;
   pincode: string;
+  country: string;
 }
 
 const STEPS = [
@@ -84,10 +86,12 @@ export default function Checkout() {
   const [shipping, setShipping] = useState<ShippingForm>({
     fullName: '',
     phone: '',
+    label: 'Home',
     street: '',
     city: '',
     state: '',
     pincode: '',
+    country: 'India',
   });
   const [errors, setErrors] = useState<Partial<ShippingForm>>({});
 
@@ -109,14 +113,22 @@ export default function Checkout() {
 
   // Auto-select default address or first address
   useEffect(() => {
-    if (savedAddresses.length > 0 && !selectedAddressId) {
+    if (savedAddresses.length === 0) {
+      setAddressMode('new');
+      setSelectedAddressId(null);
+      return;
+    }
+
+    if (addressMode === 'new') {
+      return;
+    }
+
+    if (!selectedAddressId) {
       const defaultAddr = savedAddresses.find(a => a.is_default) || savedAddresses[0];
       setSelectedAddressId(defaultAddr.id);
       setAddressMode('saved');
-    } else if (savedAddresses.length === 0) {
-      setAddressMode('new');
     }
-  }, [savedAddresses, selectedAddressId]);
+  }, [savedAddresses, selectedAddressId, addressMode]);
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -134,6 +146,9 @@ export default function Checkout() {
     if (!shipping.phone.trim() || !/^[6-9]\d{9}$/.test(shipping.phone.trim())) {
       newErrors.phone = 'Valid 10-digit Indian mobile number required';
     }
+    if (!shipping.label.trim()) {
+      newErrors.label = 'Label is required';
+    }
     if (!shipping.street.trim() || shipping.street.trim().length < 5) {
       newErrors.street = 'Complete address is required (min 5 characters)';
     }
@@ -142,6 +157,9 @@ export default function Checkout() {
     }
     if (!shipping.state) {
       newErrors.state = 'State is required';
+    }
+    if (!shipping.country.trim()) {
+      newErrors.country = 'Country is required';
     }
     if (!shipping.pincode.trim() || !/^\d{6}$/.test(shipping.pincode.trim())) {
       newErrors.pincode = 'Valid 6-digit pincode required';
@@ -202,8 +220,8 @@ export default function Checkout() {
             city: shipping.city.trim(),
             state: shipping.state,
             zip: shipping.pincode.trim(),
-            country: 'India',
-            label: `${shipping.city.trim()}, ${shipping.state}`,
+            country: shipping.country.trim() || 'India',
+            label: shipping.label.trim(),
             is_default: savedAddresses.length === 0,
           });
           if (!error) {
@@ -333,7 +351,7 @@ export default function Checkout() {
       <div className="container py-20 text-center animate-fade-in">
         <h1 className="text-3xl font-heading mb-4">Checkout</h1>
         <p className="text-muted-foreground mb-6">Your cart is empty</p>
-        <Link to="/shop"><Button variant="outline">Continue Shopping</Button></Link>
+        <Link to="/products"><Button variant="outline">Continue Shopping</Button></Link>
       </div>
     );
   }
@@ -366,7 +384,7 @@ export default function Checkout() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <Link to={`/product/${item.product_id}`} className="text-sm font-medium hover:underline">
+                    <Link to={`/products/${item.product_id}`} className="text-sm font-medium hover:underline">
                       {item.product.name}
                     </Link>
                     {item.variant && <p className="text-xs text-muted-foreground mt-0.5">{item.variant.name}</p>}
@@ -509,8 +527,20 @@ export default function Checkout() {
 
           {/* New address form */}
           {addressMode === 'new' && (
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5 sm:col-span-2">
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="label">Label</Label>
+                <Input
+                  id="label"
+                  placeholder="Home, Office, etc."
+                  value={shipping.label}
+                  maxLength={50}
+                  onChange={e => setShipping(s => ({ ...s, label: e.target.value }))}
+                />
+                {errors.label && <p className="text-xs text-destructive">{errors.label}</p>}
+              </div>
+
+              <div className="space-y-1.5">
                 <Label htmlFor="street">Address</Label>
                 <Input
                   id="street"
@@ -522,43 +552,59 @@ export default function Checkout() {
                 {errors.street && <p className="text-xs text-destructive">{errors.street}</p>}
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="city">City</Label>
-                <Input
-                  id="city"
-                  placeholder="City"
-                  value={shipping.city}
-                  maxLength={100}
-                  onChange={e => setShipping(s => ({ ...s, city: e.target.value }))}
-                />
-                {errors.city && <p className="text-xs text-destructive">{errors.city}</p>}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    placeholder="City"
+                    value={shipping.city}
+                    maxLength={100}
+                    onChange={e => setShipping(s => ({ ...s, city: e.target.value }))}
+                  />
+                  {errors.city && <p className="text-xs text-destructive">{errors.city}</p>}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="pincode">Pincode</Label>
+                  <Input
+                    id="pincode"
+                    placeholder="6-digit pincode"
+                    value={shipping.pincode}
+                    maxLength={6}
+                    onChange={e => setShipping(s => ({ ...s, pincode: e.target.value.replace(/\D/g, '') }))}
+                  />
+                  {errors.pincode && <p className="text-xs text-destructive">{errors.pincode}</p>}
+                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="pincode">Pincode</Label>
-                <Input
-                  id="pincode"
-                  placeholder="6-digit pincode"
-                  value={shipping.pincode}
-                  maxLength={6}
-                  onChange={e => setShipping(s => ({ ...s, pincode: e.target.value.replace(/\D/g, '') }))}
-                />
-                {errors.pincode && <p className="text-xs text-destructive">{errors.pincode}</p>}
-              </div>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>State / Union Territory</Label>
+                  <Select value={shipping.state} onValueChange={val => setShipping(s => ({ ...s, state: val }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INDIAN_STATES.map(st => (
+                        <SelectItem key={st} value={st}>{st}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.state && <p className="text-xs text-destructive">{errors.state}</p>}
+                </div>
 
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>State / Union Territory</Label>
-                <Select value={shipping.state} onValueChange={val => setShipping(s => ({ ...s, state: val }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select state" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INDIAN_STATES.map(st => (
-                      <SelectItem key={st} value={st}>{st}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.state && <p className="text-xs text-destructive">{errors.state}</p>}
+                <div className="space-y-1.5">
+                  <Label htmlFor="country">Country</Label>
+                  <Input
+                    id="country"
+                    placeholder="Country"
+                    value={shipping.country}
+                    maxLength={100}
+                    onChange={e => setShipping(s => ({ ...s, country: e.target.value }))}
+                  />
+                  {errors.country && <p className="text-xs text-destructive">{errors.country}</p>}
+                </div>
               </div>
             </div>
           )}

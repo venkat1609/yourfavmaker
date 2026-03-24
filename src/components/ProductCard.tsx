@@ -7,7 +7,7 @@ interface Props {
 
 export default function ProductCard({ product }: Props) {
   return (
-    <Link to={`/product/${product.id}`} className="group block animate-fade-in">
+    <Link to={`/products/${product.id}`} className="group block animate-fade-in">
       <div className="aspect-[3/4] overflow-hidden bg-secondary rounded-sm mb-3">
         {product.image_url ? (
           <img

@@ -12,7 +12,7 @@ export default function Cart() {
       <div className="container py-20 text-center animate-fade-in">
         <h1 className="text-3xl font-heading mb-4">Your Cart</h1>
         <p className="text-muted-foreground mb-6">Your cart is empty</p>
-        <Link to="/shop"><Button variant="outline">Continue Shopping</Button></Link>
+        <Link to="/products"><Button variant="outline">Continue Shopping</Button></Link>
       </div>
     );
   }
@@ -38,7 +38,7 @@ export default function Cart() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <Link to={`/product/${item.product_id}`} className="text-sm font-medium hover:underline">{item.product.name}</Link>
+                  <Link to={`/products/${item.product_id}`} className="text-sm font-medium hover:underline">{item.product.name}</Link>
                   {item.variant && <p className="text-xs text-muted-foreground mt-0.5">{item.variant.name}</p>}
                   <p className="text-sm text-muted-foreground mt-1">₹{Number(price).toFixed(2)}</p>
                   <div className="flex items-center gap-3 mt-3">

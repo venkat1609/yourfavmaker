@@ -10,10 +10,10 @@ interface Props {
 
 export default function CategoryBanner({ title, subtitle, image, tag, align = 'left' }: Props) {
   return (
-    <Link
-      to={`/shop?tag=${encodeURIComponent(tag)}`}
-      className="group block overflow-hidden rounded-sm animate-fade-in"
-    >
+      <Link
+        to={`/products?tag=${encodeURIComponent(tag)}`}
+        className="group block overflow-hidden rounded-sm animate-fade-in"
+      >
       <div className={`relative flex ${align === 'right' ? 'flex-row-reverse' : 'flex-row'} min-h-[320px] md:min-h-[400px]`}>
         <div className="absolute inset-0 md:relative md:w-1/2">
           <img

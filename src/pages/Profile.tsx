@@ -34,16 +34,6 @@ export default function Profile() {
     enabled: !!user,
   });
 
-  const { data: sellerProfile } = useQuery({
-    queryKey: ['my-seller', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('sellers').select('id, name, status').eq('user_id', user!.id).maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
-
   const updateProfile = useMutation({
     mutationFn: async (updates: { full_name: string; phone: string }) => {
       const { error } = await supabase.from('profiles').update(updates).eq('user_id', user!.id);
@@ -129,27 +119,18 @@ export default function Profile() {
         )}
       </section>
 
-      {/* Become a Seller */}
-      {!sellerProfile && (
+      {!isSeller ? (
         <section className="mt-12 border rounded-sm p-6 text-center">
           <Store className="h-8 w-8 mx-auto text-accent mb-3" />
           <h2 className="text-lg font-heading mb-2">Become a Seller</h2>
           <p className="text-sm text-muted-foreground mb-4">Start selling your products on YourFavMaker.</p>
           <Button asChild><Link to="/seller/register">Get Started</Link></Button>
         </section>
-      )}
-      {sellerProfile && sellerProfile.status === 'pending' && (
-        <section className="mt-12 border border-accent/30 rounded-sm p-6 text-center">
-          <Store className="h-8 w-8 mx-auto text-accent mb-3" />
-          <h2 className="text-lg font-heading mb-2">Seller Application Pending</h2>
-          <p className="text-sm text-muted-foreground">Your application for <strong>{sellerProfile.name}</strong> is under review.</p>
-        </section>
-      )}
-      {sellerProfile && sellerProfile.status === 'approved' && (
+      ) : (
         <section className="mt-12 border border-success/30 rounded-sm p-6 text-center">
           <Store className="h-8 w-8 mx-auto text-success mb-3" />
-          <h2 className="text-lg font-heading mb-2">Seller Account Active</h2>
-          <p className="text-sm text-muted-foreground mb-4">Manage your products and storefront.</p>
+          <h2 className="text-lg font-heading mb-2">Seller Dashboard</h2>
+          <p className="text-sm text-muted-foreground mb-4">Manage your storefront, products, and orders.</p>
           <Button asChild><Link to="/seller/dashboard">Go to Dashboard</Link></Button>
         </section>
       )}

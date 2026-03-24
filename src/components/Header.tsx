@@ -22,19 +22,9 @@ export default function Header() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-8 text-sm font-body">
-          <Link to="/shop" className="text-muted-foreground hover:text-foreground transition-colors">Shop</Link>
+          <Link to="/products" className="text-muted-foreground hover:text-foreground transition-colors">Products</Link>
           {user && (
             <Link to="/orders" className="text-muted-foreground hover:text-foreground transition-colors">Orders</Link>
-          )}
-          {isSeller && (
-            <Link to="/seller/dashboard" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-              <Store className="h-3 w-3" /> Seller
-            </Link>
-          )}
-          {isAdmin && (
-            <Link to="/admin" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-              <Shield className="h-3 w-3" /> Admin
-            </Link>
           )}
         </nav>
 
@@ -64,20 +54,14 @@ export default function Header() {
 
       {menuOpen && (
         <div className="md:hidden border-t bg-background p-4 space-y-3 animate-fade-in">
-          <Link to="/shop" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Shop</Link>
+          <Link to="/products" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Products</Link>
           {user && (
-            <>
-              <Link to="/orders" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Orders</Link>
-              <Link to="/profile" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Profile</Link>
-              {isSeller && (
-                <Link to="/seller/dashboard" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Seller Dashboard</Link>
-              )}
-              {isAdmin && (
-                <Link to="/admin" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Admin</Link>
-              )}
-              <button onClick={() => { signOut(); setMenuOpen(false); }} className="block py-2 text-sm text-destructive">Sign Out</button>
-            </>
-          )}
+              <>
+                <Link to="/orders" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Orders</Link>
+                <Link to="/profile" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Profile</Link>
+                <button onClick={() => { signOut(); setMenuOpen(false); }} className="block py-2 text-sm text-destructive">Sign Out</button>
+              </>
+            )}
         </div>
       )}
     </header>
@@ -85,7 +69,7 @@ export default function Header() {
 }
 
 function ProfilePopover() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAdmin, isSeller } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
@@ -111,11 +95,11 @@ function ProfilePopover() {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button className="p-2 hover:bg-secondary rounded-sm transition-colors hidden md:block">
-          <User className="h-5 w-5" />
-        </button>
-      </PopoverTrigger>
+        <PopoverTrigger asChild>
+          <button className="p-2 hover:bg-secondary rounded-sm transition-colors">
+            <User className="h-5 w-5" />
+          </button>
+        </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end" sideOffset={8}>
         {/* Profile header */}
         <div className="p-4">
@@ -173,19 +157,29 @@ function ProfilePopover() {
         <Separator />
 
         {/* Quick links */}
-        <div className="p-2">
+        <div className="p-2 space-y-1">
           <button
             onClick={() => { setOpen(false); navigate('/orders'); }}
             className="flex items-center gap-2 w-full px-2 py-2 text-sm rounded-sm hover:bg-secondary transition-colors"
           >
             <Package className="h-4 w-4 text-muted-foreground" /> Orders
           </button>
-          <button
-            onClick={() => { setOpen(false); navigate('/seller/dashboard'); }}
-            className="flex items-center gap-2 w-full px-2 py-2 text-sm rounded-sm hover:bg-secondary transition-colors"
-          >
-            <Store className="h-4 w-4 text-muted-foreground" /> Seller Dashboard
-          </button>
+          {isSeller && (
+            <button
+              onClick={() => { setOpen(false); navigate('/seller/dashboard'); }}
+              className="flex items-center gap-2 w-full px-2 py-2 text-sm rounded-sm hover:bg-secondary transition-colors"
+            >
+              <Store className="h-4 w-4 text-muted-foreground" /> Seller Dashboard
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              onClick={() => { setOpen(false); navigate('/admin'); }}
+              className="flex items-center gap-2 w-full px-2 py-2 text-sm rounded-sm hover:bg-secondary transition-colors"
+            >
+              <Shield className="h-4 w-4 text-muted-foreground" /> Admin
+            </button>
+          )}
           <Separator className="my-1" />
           <button
             onClick={() => { signOut(); setOpen(false); }}

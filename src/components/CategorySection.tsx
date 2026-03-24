@@ -17,18 +17,18 @@ export default function CategorySection({ title, subtitle, products, tag }: Prop
 
   return (
     <SectionShell>
-      <SectionHeading
-        title={title}
-        subtitle={subtitle}
-        actions={
-          <Link
-            to={`/shop?tag=${encodeURIComponent(tag)}`}
-            className="hidden sm:flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors group"
-          >
-            View all <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </Link>
-        }
-      />
+        <SectionHeading
+          title={title}
+          subtitle={subtitle}
+          actions={
+            <Link
+              to={`/products?tag=${encodeURIComponent(tag)}`}
+              className="hidden sm:flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+            >
+              View all <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          }
+        />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
         {products.slice(0, 4).map(product => (
@@ -37,7 +37,7 @@ export default function CategorySection({ title, subtitle, products, tag }: Prop
       </div>
 
       <Link
-        to={`/shop?tag=${encodeURIComponent(tag)}`}
+        to={`/products?tag=${encodeURIComponent(tag)}`}
         className="flex sm:hidden items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mt-6"
       >
         View all <ArrowRight className="h-4 w-4" />
