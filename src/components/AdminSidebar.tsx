@@ -53,7 +53,7 @@ export function AdminSidebar() {
               {mainItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink to={item.url} end={item.url === '/admin'} className={navLinkClassName} activeClassName={navLinkActiveClassName}>
+                    <NavLink href={item.url} end={item.url === '/admin'} className={navLinkClassName} activeClassName={navLinkActiveClassName}>
                       <item.icon className="h-4 w-4 flex-shrink-0 transition-transform duration-200 group-hover:scale-110 group-focus-within:scale-110 group-active:scale-95" />
                       {!collapsed && <span className="transition-transform duration-200 group-hover:translate-x-0.5 group-focus-within:translate-x-0.5">{item.title}</span>}
                     </NavLink>
@@ -73,7 +73,7 @@ export function AdminSidebar() {
               {catalogItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink to={item.url} className={navLinkClassName} activeClassName={navLinkActiveClassName}>
+                    <NavLink href={item.url} className={navLinkClassName} activeClassName={navLinkActiveClassName}>
                       <item.icon className="h-4 w-4 flex-shrink-0 transition-transform duration-200 group-hover:scale-110 group-focus-within:scale-110 group-active:scale-95" />
                       {!collapsed && <span className="transition-transform duration-200 group-hover:translate-x-0.5 group-focus-within:translate-x-0.5">{item.title}</span>}
                     </NavLink>
@@ -89,7 +89,7 @@ export function AdminSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <NavLink to="/" end className={navLinkClassName} activeClassName={navLinkActiveClassName}>
+              <NavLink href="/" end className={navLinkClassName} activeClassName={navLinkActiveClassName}>
                 <ArrowLeft className="h-4 w-4 flex-shrink-0 transition-transform duration-200 group-hover:scale-110 group-focus-within:scale-110 group-active:scale-95" />
                 {!collapsed && <span className="transition-transform duration-200 group-hover:translate-x-0.5 group-focus-within:translate-x-0.5">Back to Store</span>}
               </NavLink>

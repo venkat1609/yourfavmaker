@@ -1,9 +1,10 @@
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
+import type { StaticImageData } from 'next/image';
 
 interface Props {
   title: string;
   subtitle: string;
-  image: string;
+  image: string | StaticImageData;
   tag: string;
   align?: 'left' | 'right';
 }
@@ -11,13 +12,13 @@ interface Props {
 export default function CategoryBanner({ title, subtitle, image, tag, align = 'left' }: Props) {
   return (
       <Link
-        to={`/products?tag=${encodeURIComponent(tag)}`}
+        href={`/products?tag=${encodeURIComponent(tag)}`}
         className="group block overflow-hidden rounded-sm animate-fade-in"
       >
       <div className={`relative flex ${align === 'right' ? 'flex-row-reverse' : 'flex-row'} min-h-[320px] md:min-h-[400px]`}>
         <div className="absolute inset-0 md:relative md:w-1/2">
           <img
-            src={image}
+            src={typeof image === 'string' ? image : image.src}
             alt={title}
             className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
             loading="lazy"

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import type { Tables } from '@/integrations/supabase/types';
 
 interface Props {
@@ -7,7 +7,7 @@ interface Props {
 
 export default function ProductCard({ product }: Props) {
   return (
-    <Link to={`/products/${product.id}`} className="group block animate-fade-in">
+    <Link href={`/products/${product.id}`} className="group block animate-fade-in">
       <div className="aspect-[3/4] overflow-hidden bg-secondary rounded-sm mb-3">
         {product.image_url ? (
           <img

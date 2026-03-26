@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MapPin, Store, ChevronRight } from 'lucide-react';
 
@@ -18,7 +18,7 @@ export default function SellerCard({ seller }: SellerCardProps) {
 
   return (
     <Link
-      to={`/seller/${seller.slug}`}
+      href={`/seller/${seller.slug}`}
       className="group flex items-center gap-4 rounded-md border p-4 transition-all duration-200 hover:border-ring/40 hover:shadow-sm active:scale-[0.99]"
     >
       <Avatar className="h-12 w-12 border">

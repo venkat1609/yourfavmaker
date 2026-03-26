@@ -1,4 +1,6 @@
-import { Link, useNavigate } from 'react-router-dom';
+"use client";
+
+import Link from 'next/link';
 import { ShoppingBag, User, Menu, X, LogOut, Shield, MapPin, Package, Pencil, ChevronRight, Store } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCart } from '@/hooks/useCart';
@@ -8,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useRouter } from 'next/navigation';
 
 export default function Header() {
   const { user, isAdmin, isSeller, signOut } = useAuth();
@@ -17,21 +20,21 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="container flex h-16 items-center justify-between">
-        <Link to="/" className="font-heading text-2xl tracking-tight">
+        <Link href="/" className="font-heading text-2xl tracking-tight">
           YourFavMaker
         </Link>
 
         <nav className="hidden md:flex items-center gap-8 text-sm font-body">
-          <Link to="/products" className="text-muted-foreground hover:text-foreground transition-colors">Products</Link>
+          <Link href="/products" className="text-muted-foreground hover:text-foreground transition-colors">Products</Link>
           {user && (
-            <Link to="/orders" className="text-muted-foreground hover:text-foreground transition-colors">Orders</Link>
+            <Link href="/orders" className="text-muted-foreground hover:text-foreground transition-colors">Orders</Link>
           )}
         </nav>
 
         <div className="flex items-center gap-3">
           {user ? (
             <>
-              <Link to="/cart" className="relative p-2 hover:bg-secondary rounded-sm transition-colors">
+              <Link href="/cart" className="relative p-2 hover:bg-secondary rounded-sm transition-colors">
                 <ShoppingBag className="h-5 w-5" />
                 {itemCount > 0 && (
                   <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-accent text-accent-foreground text-xs flex items-center justify-center font-medium">
@@ -42,7 +45,7 @@ export default function Header() {
               <ProfilePopover />
             </>
           ) : (
-            <Link to="/auth">
+            <Link href="/auth">
               <Button variant="outline" size="sm">Sign In</Button>
             </Link>
           )}
@@ -54,11 +57,11 @@ export default function Header() {
 
       {menuOpen && (
         <div className="md:hidden border-t bg-background p-4 space-y-3 animate-fade-in">
-          <Link to="/products" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Products</Link>
+          <Link href="/products" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Products</Link>
           {user && (
               <>
-                <Link to="/orders" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Orders</Link>
-                <Link to="/profile" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Profile</Link>
+                <Link href="/orders" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Orders</Link>
+                <Link href="/profile" className="block py-2 text-sm" onClick={() => setMenuOpen(false)}>Profile</Link>
                 <button onClick={() => { signOut(); setMenuOpen(false); }} className="block py-2 text-sm text-destructive">Sign Out</button>
               </>
             )}
@@ -70,7 +73,7 @@ export default function Header() {
 
 function ProfilePopover() {
   const { user, signOut, isAdmin, isSeller } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
 
   const { data: profile } = useQuery({
@@ -86,7 +89,7 @@ function ProfilePopover() {
   const { data: addresses = [] } = useQuery({
     queryKey: ['addresses', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('addresses').select('*').eq('user_id', user!.id).order('is_default', { ascending: false });
+      const { data, error } = await supabase.from('addresses').select('*').eq('user_id', user!.id).order('is_primary', { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -114,7 +117,7 @@ function ProfilePopover() {
               </div>
             </div>
             <button
-              onClick={() => { setOpen(false); navigate('/profile'); }}
+              onClick={() => { setOpen(false); router.push('/profile'); }}
               className="text-muted-foreground hover:text-foreground p-1"
               title="Edit profile"
             >
@@ -138,7 +141,7 @@ function ProfilePopover() {
                   <div className="min-w-0">
                     <p className="text-xs font-medium">
                       {addr.label}
-                      {addr.is_default && <span className="text-accent ml-1">(Default)</span>}
+                      {addr.is_primary && <span className="text-accent ml-1">(Primary)</span>}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">{addr.street}, {addr.city}</p>
                   </div>
@@ -147,7 +150,7 @@ function ProfilePopover() {
             </div>
           )}
           <button
-            onClick={() => { setOpen(false); navigate('/profile'); }}
+            onClick={() => { setOpen(false); router.push('/profile'); }}
             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mt-2 transition-colors"
           >
             Manage addresses <ChevronRight className="h-3 w-3" />
@@ -159,14 +162,14 @@ function ProfilePopover() {
         {/* Quick links */}
         <div className="p-2 space-y-1">
           <button
-            onClick={() => { setOpen(false); navigate('/orders'); }}
+            onClick={() => { setOpen(false); router.push('/orders'); }}
             className="flex items-center gap-2 w-full px-2 py-2 text-sm rounded-sm hover:bg-secondary transition-colors"
           >
             <Package className="h-4 w-4 text-muted-foreground" /> Orders
           </button>
           {isSeller && (
             <button
-              onClick={() => { setOpen(false); navigate('/seller/dashboard'); }}
+              onClick={() => { setOpen(false); router.push('/seller/dashboard'); }}
               className="flex items-center gap-2 w-full px-2 py-2 text-sm rounded-sm hover:bg-secondary transition-colors"
             >
               <Store className="h-4 w-4 text-muted-foreground" /> Seller Dashboard
@@ -174,7 +177,7 @@ function ProfilePopover() {
           )}
           {isAdmin && (
             <button
-              onClick={() => { setOpen(false); navigate('/admin'); }}
+              onClick={() => { setOpen(false); router.push('/admin'); }}
               className="flex items-center gap-2 w-full px-2 py-2 text-sm rounded-sm hover:bg-secondary transition-colors"
             >
               <Shield className="h-4 w-4 text-muted-foreground" /> Admin

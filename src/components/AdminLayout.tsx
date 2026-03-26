@@ -1,10 +1,20 @@
-import { Outlet, Navigate } from 'react-router-dom';
+"use client";
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AdminSidebar } from '@/components/AdminSidebar';
 import { useAuth } from '@/hooks/useAuth';
 
-export default function AdminLayout() {
+export default function AdminLayout({ children }: { children?: React.ReactNode }) {
   const { isAdmin, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !isAdmin) {
+      router.replace('/');
+    }
+  }, [loading, isAdmin, router]);
 
   if (loading) {
     return (
@@ -14,7 +24,7 @@ export default function AdminLayout() {
     );
   }
 
-  if (!isAdmin) return <Navigate to="/" replace />;
+  if (!isAdmin) return null;
 
   return (
     <SidebarProvider>
@@ -26,7 +36,7 @@ export default function AdminLayout() {
             <span className="text-sm font-medium text-muted-foreground">Admin</span>
           </header>
           <main className="flex-1 p-6 md:p-8 overflow-auto">
-            <Outlet />
+            {children}
           </main>
         </div>
       </div>
