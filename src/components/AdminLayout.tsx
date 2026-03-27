@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AdminSidebar } from '@/components/AdminSidebar';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,6 +9,25 @@ import { useAuth } from '@/hooks/useAuth';
 export default function AdminLayout({ children }: { children?: React.ReactNode }) {
   const { isAdmin, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+
+  const sectionTitle = (() => {
+    switch (pathname) {
+      case '/admin':
+        return 'Dashboard';
+      case '/admin/products':
+      case '/admin/categories':
+      case '/admin/tags':
+        return 'Catalog';
+      case '/admin/orders':
+        return 'Sales';
+      case '/admin/customers':
+      case '/admin/sellers':
+        return 'People';
+      default:
+        return 'Admin Dashboard';
+    }
+  })();
 
   useEffect(() => {
     if (!loading && !isAdmin) {
@@ -33,7 +52,7 @@ export default function AdminLayout({ children }: { children?: React.ReactNode }
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-12 flex items-center border-b px-4 gap-3">
             <SidebarTrigger />
-            <span className="text-sm font-medium text-muted-foreground">Admin</span>
+            <span className="text-sm font-medium text-muted-foreground">{sectionTitle}</span>
           </header>
           <main className="flex-1 p-6 md:p-8 overflow-auto">
             {children}

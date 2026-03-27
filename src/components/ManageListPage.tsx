@@ -10,7 +10,6 @@ import { Plus, Pencil, Trash2, X } from 'lucide-react';
 
 interface Props {
   title: string;
-  icon: React.ReactNode;
   description: string;
   queryKey: string;
   tableName: 'categories' | 'tags';
@@ -19,7 +18,9 @@ interface Props {
 const iconActionButtonClassName =
   'relative rounded-sm p-1.5 text-muted-foreground opacity-0 translate-x-1 transition-[color,background-color,opacity,transform] duration-200 hover:bg-accent hover:text-accent-foreground focus-visible:opacity-100 focus-visible:translate-x-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background group-hover:opacity-100 group-hover:translate-x-0 group-focus-within:opacity-100 group-focus-within:translate-x-0 active:scale-95 after:absolute after:bottom-0 after:left-1.5 after:right-1.5 after:h-px after:origin-right after:scale-x-0 after:bg-primary after:transition-transform after:duration-200 hover:after:origin-left hover:after:scale-x-100 focus-visible:after:origin-left focus-visible:after:scale-x-100';
 
-export default function ManageListPage({ title, icon, description, queryKey, tableName }: Props) {
+const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : 'Something went wrong';
+
+export default function ManageListPage({ title, description, queryKey, tableName }: Props) {
   const queryClient = useQueryClient();
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -37,24 +38,30 @@ export default function ManageListPage({ title, icon, description, queryKey, tab
   const addItem = useMutation({
     mutationFn: async (name: string) => { const { error } = await supabase.from(tableName).insert({ name: name.trim() }); if (error) throw error; },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: [queryKey] }); setNewName(''); toast.success(`${title.slice(0, -1)} added`); },
-    onError: (e: any) => toast.error(e.message.includes('unique') ? 'Already exists' : e.message),
+    onError: (error) => {
+      const message = getErrorMessage(error);
+      toast.error(message.includes('unique') ? 'Already exists' : message);
+    },
   });
 
   const updateItem = useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => { const { error } = await supabase.from(tableName).update({ name: name.trim() }).eq('id', id); if (error) throw error; },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: [queryKey] }); setEditingId(null); toast.success('Updated'); },
-    onError: (e: any) => toast.error(e.message.includes('unique') ? 'Already exists' : e.message),
+    onError: (error) => {
+      const message = getErrorMessage(error);
+      toast.error(message.includes('unique') ? 'Already exists' : message);
+    },
   });
 
   const deleteItem = useMutation({
     mutationFn: async (id: string) => { const { error } = await supabase.from(tableName).delete().eq('id', id); if (error) throw error; },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: [queryKey] }); toast.success('Deleted'); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (error) => toast.error(getErrorMessage(error)),
   });
 
   return (
     <div className="animate-fade-in">
-      <div className="mb-1 flex items-center gap-2">{icon}<h1 className="text-2xl font-heading">{title}</h1></div>
+      <h1 className="mb-1 text-2xl font-heading">{title}</h1>
       <p className="mb-6 text-sm text-muted-foreground">{description}</p>
 
       <div className="max-w-lg">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -14,9 +14,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, X, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
 import { useCategories, useTags, useSellers } from '@/hooks/useAdminData';
+import type { Database } from '@/integrations/supabase/types';
+import type { ProductImageItem } from '@/lib/productImages';
+import { createProductImageItemsFromFiles, revokeProductImageItems, resolveProductImageUrls } from '@/lib/productImages';
+
+type ProductRow = Database['public']['Tables']['products']['Row'];
 
 export default function Products() {
   const queryClient = useQueryClient();
@@ -91,7 +96,7 @@ export default function Products() {
             {tags.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={filterActive} onValueChange={v => setFilterActive(v as any)}>
+        <Select value={filterActive} onValueChange={v => setFilterActive(v as 'all' | 'active' | 'inactive')}>
           <SelectTrigger className="w-[130px]"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
@@ -150,17 +155,32 @@ export default function Products() {
 interface AttributeRow { id?: string; name: string; values: string[]; display_order: number; _newValue?: string; }
 interface VariantRow { id?: string; name: string; sku: string; price: string; compare_at_price: string; stock: string; options: Record<string, string>; is_active: boolean; }
 
-function ProductFormDialog({ product }: { product?: any }) {
+function ProductFormDialog({ product }: { product?: ProductRow }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
+  const [images, setImages] = useState<ProductImageItem[]>([]);
+  const imagesRef = useRef<ProductImageItem[]>([]);
   const [form, setForm] = useState({
     name: product?.name || '', description: product?.description || '',
     price: product?.price?.toString() || '', compare_at_price: product?.compare_at_price?.toString() || '',
     category: product?.category || '', tags: (product?.tags as string[]) || [],
-    stock: product?.stock?.toString() || '0', image_url: product?.image_url || '',
+    stock: product?.stock?.toString() || '0',
     is_active: product?.is_active ?? true, seller_id: product?.seller_id || '',
   });
+  const initialProductImageUrls = useMemo(() => {
+    const urls = (product?.image_urls || []).filter(Boolean);
+    if (urls.length > 0) return urls;
+    return product?.image_url ? [product.image_url] : [];
+  }, [product]);
+  const initialImages = useMemo<ProductImageItem[]>(
+    () => initialProductImageUrls.map((url, index) => ({
+      id: `${product?.id || 'new'}-${index}`,
+      kind: 'existing' as const,
+      previewUrl: url,
+    })),
+    [initialProductImageUrls, product?.id],
+  );
 
   const { data: categories = [] } = useCategories();
   const { data: tags = [] } = useTags();
@@ -181,15 +201,31 @@ function ProductFormDialog({ product }: { product?: any }) {
 
   useEffect(() => { if (existingAttrs) setAttributes(existingAttrs.map(a => ({ id: a.id, name: a.name, values: a.values || [], display_order: a.display_order, _newValue: '' }))); }, [existingAttrs]);
   useEffect(() => { if (existingVariants) setVariants(existingVariants.map(v => ({ id: v.id, name: v.name, sku: v.sku || '', price: v.price?.toString() || '', compare_at_price: v.compare_at_price?.toString() || '', stock: v.stock?.toString() || '0', options: (v.options as Record<string, string>) || {}, is_active: v.is_active }))); }, [existingVariants]);
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+  useEffect(() => {
+    if (open) {
+      setImages(initialImages);
+      return;
+    }
+    setImages(prev => {
+      revokeProductImageItems(prev);
+      return [];
+    });
+  }, [open, initialImages]);
+  useEffect(() => () => revokeProductImageItems(imagesRef.current), []);
 
   const addAttribute = () => setAttributes([...attributes, { name: '', values: [], display_order: attributes.length, _newValue: '' }]);
   const removeAttribute = (idx: number) => setAttributes(attributes.filter((_, i) => i !== idx));
-  const updateAttribute = (idx: number, field: string, val: any) => setAttributes(attributes.map((a, i) => i === idx ? { ...a, [field]: val } : a));
+  const updateAttribute = (idx: number, field: keyof AttributeRow, val: string | string[] | number | undefined) =>
+    setAttributes(attributes.map((a, i) => i === idx ? { ...a, [field]: val } : a));
   const addAttributeValue = (idx: number) => { const a = attributes[idx]; const v = (a._newValue || '').trim(); if (!v || a.values.includes(v)) return; setAttributes(attributes.map((a2, i) => i === idx ? { ...a2, values: [...a2.values, v], _newValue: '' } : a2)); };
   const removeAttributeValue = (ai: number, vi: number) => setAttributes(attributes.map((a, i) => i === ai ? { ...a, values: a.values.filter((_, j) => j !== vi) } : a));
   const addVariant = () => { const opts: Record<string, string> = {}; attributes.forEach(a => { if (a.name) opts[a.name] = a.values[0] || ''; }); setVariants([...variants, { name: '', sku: '', price: form.price, compare_at_price: '', stock: '0', options: opts, is_active: true }]); };
   const removeVariant = (idx: number) => setVariants(variants.filter((_, i) => i !== idx));
-  const updateVariant = (idx: number, field: string, val: any) => setVariants(variants.map((v, i) => i === idx ? { ...v, [field]: val } : v));
+  const updateVariant = (idx: number, field: keyof VariantRow, val: string | boolean | Record<string, string>) =>
+    setVariants(variants.map((v, i) => i === idx ? { ...v, [field]: val } : v));
   const updateVariantOption = (vi: number, attrName: string, val: string) => setVariants(variants.map((v, i) => i === vi ? { ...v, options: { ...v.options, [attrName]: val } } : v));
 
   const generateVariants = () => {
@@ -208,11 +244,15 @@ function ProductFormDialog({ product }: { product?: any }) {
 
   const mutation = useMutation({
     mutationFn: async () => {
+      const imageUrls = await resolveProductImageUrls(images);
+      if (!product && imageUrls.length === 0) {
+        throw new Error('Please upload at least one product image');
+      }
       const productData = {
         name: form.name, description: form.description || null, price: parseFloat(form.price),
         compare_at_price: form.compare_at_price ? parseFloat(form.compare_at_price) : null,
         category: form.category || null, tags: form.tags, stock: parseInt(form.stock),
-        image_url: form.image_url || null, is_active: form.is_active,
+        image_url: imageUrls[0] || null, image_urls: imageUrls.length > 0 ? imageUrls : null, is_active: form.is_active,
         seller_id: form.seller_id || null,
       };
       let productId = product?.id;
@@ -224,8 +264,8 @@ function ProductFormDialog({ product }: { product?: any }) {
       if (product) await supabase.from('product_variants').delete().eq('product_id', productId);
       if (variants.length > 0) { const { error } = await supabase.from('product_variants').insert(variants.map(v => ({ product_id: productId, name: v.name || Object.values(v.options).join(' / ') || 'Default', sku: v.sku || null, price: parseFloat(v.price), compare_at_price: v.compare_at_price ? parseFloat(v.compare_at_price) : null, stock: parseInt(v.stock), options: v.options, is_active: v.is_active }))); if (error) throw error; }
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); queryClient.invalidateQueries({ queryKey: ['products'] }); toast.success(product ? 'Product updated' : 'Product created'); setOpen(false); },
-    onError: (e: any) => toast.error(e.message),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); queryClient.invalidateQueries({ queryKey: ['products'] }); toast.success(product ? 'Product updated' : 'Product created'); revokeProductImageItems(imagesRef.current); setImages([]); setOpen(false); },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Something went wrong'),
   });
 
   return (
@@ -270,7 +310,87 @@ function ProductFormDialog({ product }: { product?: any }) {
                   ))}
                 </div>
               </div>
-              <div className="space-y-2"><Label>Image URL</Label><Input value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })} /></div>
+              <div className="space-y-2">
+                <Label>Product Images</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={e => {
+                    const files = Array.from(e.target.files || []);
+                    if (files.length > 0) {
+                      setImages(prev => [...prev, ...createProductImageItemsFromFiles(files)]);
+                    }
+                    e.currentTarget.value = '';
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {product
+                    ? 'Reorder images with the arrows. The first image becomes the primary image.'
+                    : 'Upload one or more images for the product gallery.'}
+                </p>
+                {images.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Gallery Order</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {images.map((image, index) => (
+                        <div key={image.id} className="relative overflow-hidden rounded-sm border bg-secondary">
+                          <img src={image.previewUrl} alt={`Product image ${index + 1}`} className="aspect-square h-full w-full object-cover" />
+                          {index === 0 && (
+                            <div className="absolute left-1 top-1 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider">
+                              Primary
+                            </div>
+                          )}
+                          <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setImages(prev => {
+                                if (index === 0) return prev;
+                                const next = [...prev];
+                                [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                                return next;
+                              })}
+                              disabled={index === 0}
+                              className="rounded-full bg-background/90 p-1 text-foreground shadow disabled:opacity-40"
+                              aria-label={`Move image ${index + 1} left`}
+                            >
+                              <ChevronLeft className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setImages(prev => {
+                                if (index === prev.length - 1) return prev;
+                                const next = [...prev];
+                                [next[index + 1], next[index]] = [next[index], next[index + 1]];
+                                return next;
+                              })}
+                              disabled={index === images.length - 1}
+                              className="rounded-full bg-background/90 p-1 text-foreground shadow disabled:opacity-40"
+                              aria-label={`Move image ${index + 1} right`}
+                            >
+                              <ChevronRight className="h-3 w-3" />
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setImages(prev => {
+                              const item = prev[index];
+                              if (item?.kind === 'new') {
+                                URL.revokeObjectURL(item.previewUrl);
+                              }
+                              return prev.filter((_, i) => i !== index);
+                            })}
+                            className="absolute right-1 top-1 rounded-full bg-background/90 p-1 text-foreground shadow hover:bg-background"
+                            aria-label={`Remove image ${index + 1}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
               <div className="space-y-2">
                 <Label>Seller</Label>
                 <Select value={form.seller_id} onValueChange={v => setForm({ ...form, seller_id: v === 'none' ? '' : v })}>
@@ -345,7 +465,7 @@ function ProductFormDialog({ product }: { product?: any }) {
             </div>
           </TabsContent>
         </Tabs>
-        <Button onClick={() => mutation.mutate()} className="w-full mt-4" disabled={mutation.isPending}>
+        <Button onClick={() => mutation.mutate()} className="w-full mt-4" disabled={mutation.isPending || (!product && images.length === 0)}>
           {mutation.isPending ? 'Saving...' : 'Save Product'}
         </Button>
       </DialogContent>

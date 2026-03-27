@@ -12,6 +12,9 @@ import { Minus, Plus, ArrowLeft } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import SellerCard from '@/components/SellerCard';
+import type { Database } from '@/integrations/supabase/types';
+
+type ProductRow = Database['public']['Tables']['products']['Row'];
 
 export default function ProductDetail() {
   const params = useParams<{ id: string }>();
@@ -21,13 +24,14 @@ export default function ProductDetail() {
   const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ['product', id],
     queryFn: async () => {
       const { data, error } = await supabase.from('products').select('*').eq('id', id!).single();
       if (error) throw error;
-      return data;
+      return data as ProductRow;
     },
     enabled: !!id,
   });
@@ -72,7 +76,7 @@ export default function ProductDetail() {
       });
       setSelectedOptions(initial);
     }
-  }, [attributes]);
+  }, [attributes, selectedOptions]);
 
   // Find matching variant based on selected options
   const selectedVariant = useMemo(() => {
@@ -97,6 +101,16 @@ export default function ProductDetail() {
   const displayCompareAt = selectedVariant?.compare_at_price ? Number(selectedVariant.compare_at_price) : (product?.compare_at_price ? Number(product.compare_at_price) : null);
   const displayStock = selectedVariant ? selectedVariant.stock : (product?.stock || 0);
   const hasVariants = variants.length > 0;
+  const productImages = useMemo(() => {
+    if (!product) return [];
+    const urls = (product.image_urls || []).filter(Boolean);
+    if (urls.length > 0) return urls;
+    return product.image_url ? [product.image_url] : [];
+  }, [product]);
+
+  useEffect(() => {
+    setSelectedImageIndex(0);
+  }, [product?.id]);
 
   if (isLoading) {
     return (
@@ -141,11 +155,44 @@ export default function ProductDetail() {
       </button>
 
       <div className="grid md:grid-cols-2 gap-12">
-        <div className="aspect-square overflow-hidden bg-secondary rounded-sm">
-          {product.image_url ? (
-            <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
+        <div className="space-y-3">
+          {productImages.length > 0 ? (
+            <>
+              <div className="aspect-square overflow-hidden bg-secondary rounded-sm">
+                <img
+                  src={productImages[selectedImageIndex] || productImages[0]}
+                  alt={`${product.name} image ${selectedImageIndex + 1}`}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              {productImages.length > 1 && (
+                <div className="grid grid-cols-4 gap-3">
+                  {productImages.map((imageUrl, index) => (
+                    <button
+                      key={`${imageUrl}-${index}`}
+                      type="button"
+                      onClick={() => setSelectedImageIndex(index)}
+                      className={`aspect-square overflow-hidden rounded-sm border transition-all ${
+                        selectedImageIndex === index
+                          ? 'border-foreground ring-2 ring-foreground/20'
+                          : 'border-border hover:border-foreground/40'
+                      }`}
+                      aria-label={`View product image ${index + 1}`}
+                    >
+                      <img
+                        src={imageUrl}
+                        alt={`${product.name} thumbnail ${index + 1}`}
+                        className="h-full w-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           ) : (
-            <div className="h-full w-full flex items-center justify-center text-muted-foreground">No image</div>
+            <div className="aspect-square overflow-hidden bg-secondary rounded-sm flex items-center justify-center text-muted-foreground">
+              No image
+            </div>
           )}
         </div>
 

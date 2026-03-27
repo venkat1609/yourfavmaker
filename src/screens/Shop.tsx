@@ -24,14 +24,16 @@ import { useIsMobile } from '@/hooks/use-mobile';
 type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'name-asc';
 
 export default function Shop() {
-  const searchParams = useSearchParams() ?? new URLSearchParams();
+  const rawSearchParams = useSearchParams();
+  const searchParams = useMemo(() => rawSearchParams ?? new URLSearchParams(), [rawSearchParams]);
   const initialCategory = searchParams.get('category');
   const initialTag = searchParams.get('tag');
+  const initialSearch = searchParams.get('search') ?? '';
   const isMobile = useIsMobile();
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>(initialCategory ? [initialCategory] : []);
   const [selectedTag, setSelectedTag] = useState<string | null>(initialTag);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initialSearch);
   const [sort, setSort] = useState<SortOption>('newest');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -49,9 +51,11 @@ export default function Shop() {
   useEffect(() => {
     const cat = searchParams.get('category');
     const tag = searchParams.get('tag');
+    const searchQuery = searchParams.get('search') ?? '';
     if (cat) setSelectedCategories([cat]);
     else setSelectedCategories([]);
     setSelectedTag(tag);
+    setSearch(searchQuery);
   }, [searchParams]);
 
   const { data: allProducts = [], isLoading } = useQuery({

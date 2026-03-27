@@ -18,20 +18,39 @@ import { toast } from 'sonner';
 
 declare global {
   interface Window {
-    Razorpay: any;
+    Razorpay: new (options: RazorpayOptions) => RazorpayInstance;
   }
 }
 
-const INDIAN_STATES = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
-  'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand',
-  'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur',
-  'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab',
-  'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
-  'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
-  'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu',
-  'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
-];
+interface RazorpayResponse {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}
+
+interface RazorpayOptions {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  prefill: {
+    [key: string]: string;
+  };
+  theme: {
+    color: string;
+  };
+  handler: (response: RazorpayResponse) => void | Promise<void>;
+  modal: {
+    ondismiss: () => void;
+  };
+}
+
+interface RazorpayInstance {
+  on: (event: 'payment.failed', callback: (response: { error?: { description?: string } }) => void) => void;
+  open: () => void;
+}
 
 interface ShippingForm {
   fullName: string;
@@ -272,7 +291,7 @@ export default function Checkout() {
           contact: shipping.phone,
         },
         theme: { color: '#1a1a1a' },
-        handler: async (response: any) => {
+        handler: async (response: RazorpayResponse) => {
           try {
             const { data: verifyData, error: verifyError } = await supabase.functions.invoke('razorpay-order', {
               body: {
@@ -292,8 +311,8 @@ export default function Checkout() {
             queryClient.invalidateQueries({ queryKey: ['orders'] });
             toast.success('Payment successful! Order confirmed.');
             router.push('/orders');
-          } catch (err: any) {
-            toast.error(err.message || 'Payment verification failed');
+          } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : 'Payment verification failed');
           }
         },
         modal: {
@@ -305,13 +324,13 @@ export default function Checkout() {
       };
 
       const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', (response: any) => {
+      rzp.on('payment.failed', (response) => {
         toast.error(response.error?.description || 'Payment failed');
         setPlacing(false);
       });
       rzp.open();
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to initiate payment');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to initiate payment');
       setPlacing(false);
     }
   };
@@ -587,17 +606,14 @@ export default function Checkout() {
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label>State / Union Territory</Label>
-                  <Select value={shipping.state} onValueChange={val => setShipping(s => ({ ...s, state: val }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select state" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {INDIAN_STATES.map(st => (
-                        <SelectItem key={st} value={st}>{st}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="state">State / Union Territory</Label>
+                  <Input
+                    id="state"
+                    placeholder="State / Union Territory"
+                    value={shipping.state}
+                    maxLength={100}
+                    onChange={e => setShipping(s => ({ ...s, state: e.target.value }))}
+                  />
                   {errors.state && <p className="text-xs text-destructive">{errors.state}</p>}
                 </div>
 

@@ -32,19 +32,21 @@ export default function SellerOnboarding() {
     if (!user) return;
     setLoading(true);
     try {
+      const slug = generateSlug(form.slug || form.name);
       const { error } = await supabase.from('sellers').insert({
         ...form,
-        slug: form.slug || generateSlug(form.name),
+        slug,
         user_id: user.id,
         status: 'pending',
       });
       if (error) throw error;
 
       // Add seller role
-      await supabase.from('user_roles').insert({ user_id: user.id, role: 'seller' as any });
+      await supabase.from('user_roles').insert({ user_id: user.id, role: 'seller' });
       setSubmitted(true);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to submit application');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to submit application';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -102,7 +104,7 @@ export default function SellerOnboarding() {
           <div className="space-y-2">
             <Label>Store Slug</Label>
             <Input value={form.slug} onChange={e => set('slug', e.target.value)} placeholder="auto-generated-from-name" />
-            <p className="text-xs text-muted-foreground">This will be your store URL: /seller/{form.slug || 'your-slug'}</p>
+            <p className="text-xs text-muted-foreground">This will be your store URL: /seller/{form.slug || 'your-slug'} and must be unique.</p>
           </div>
           <div className="space-y-2">
             <Label>Phone *</Label>

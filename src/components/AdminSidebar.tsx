@@ -13,16 +13,22 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 
-const mainItems = [
+const dashboardItems = [
   { title: 'Overview', url: '/admin', icon: LayoutDashboard },
-  { title: 'Products', url: '/admin/products', icon: Package },
-  { title: 'Orders', url: '/admin/orders', icon: ShoppingCart },
-  { title: 'Customers', url: '/admin/customers', icon: Users },
 ];
 
 const catalogItems = [
+  { title: 'Products', url: '/admin/products', icon: Package },
   { title: 'Categories', url: '/admin/categories', icon: FolderOpen },
   { title: 'Tags', url: '/admin/tags', icon: Tag },
+];
+
+const commerceItems = [
+  { title: 'Orders', url: '/admin/orders', icon: ShoppingCart },
+];
+
+const peopleItems = [
+  { title: 'Customers', url: '/admin/customers', icon: Users },
   { title: 'Sellers', url: '/admin/sellers', icon: Store },
 ];
 
@@ -45,12 +51,10 @@ export function AdminSidebar() {
     >
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs uppercase tracking-wider">
-            {!collapsed && 'Main'}
-          </SidebarGroupLabel>
+          <SidebarGroupLabel>Dashboard</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainItems.map((item) => (
+              {dashboardItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink href={item.url} end={item.url === '/admin'} className={navLinkClassName} activeClassName={navLinkActiveClassName}>
@@ -65,12 +69,46 @@ export function AdminSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs uppercase tracking-wider">
-            {!collapsed && 'Catalog'}
-          </SidebarGroupLabel>
+          <SidebarGroupLabel>Catalog</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {catalogItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink href={item.url} className={navLinkClassName} activeClassName={navLinkActiveClassName}>
+                      <item.icon className="h-4 w-4 flex-shrink-0 transition-transform duration-200 group-hover:scale-110 group-focus-within:scale-110 group-active:scale-95" />
+                      {!collapsed && <span className="transition-transform duration-200 group-hover:translate-x-0.5 group-focus-within:translate-x-0.5">{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Sales</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {commerceItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink href={item.url} className={navLinkClassName} activeClassName={navLinkActiveClassName}>
+                      <item.icon className="h-4 w-4 flex-shrink-0 transition-transform duration-200 group-hover:scale-110 group-focus-within:scale-110 group-active:scale-95" />
+                      {!collapsed && <span className="transition-transform duration-200 group-hover:translate-x-0.5 group-focus-within:translate-x-0.5">{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>People</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {peopleItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink href={item.url} className={navLinkClassName} activeClassName={navLinkActiveClassName}>
