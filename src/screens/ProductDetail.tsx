@@ -12,9 +12,12 @@ import { Minus, Plus, ArrowLeft } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import SellerCard from '@/components/SellerCard';
+import ProductCard from '@/components/ProductCard';
 import type { Database } from '@/integrations/supabase/types';
+import type { Tables } from '@/integrations/supabase/types';
 
 type ProductRow = Database['public']['Tables']['products']['Row'];
+type SuggestedProduct = Tables<'products'>;
 
 export default function ProductDetail() {
   const params = useParams<{ id: string }>();
@@ -95,6 +98,47 @@ export default function ProductDetail() {
       return data;
     },
     enabled: !!product?.seller_id,
+  });
+
+  const { data: suggestedProducts = [] } = useQuery({
+    queryKey: ['product-suggestions', product?.id, product?.category, product?.seller_id],
+    queryFn: async () => {
+      if (!product) return [];
+
+      const categoryQuery = product.category
+        ? supabase
+            .from('products')
+            .select('*')
+            .eq('category', product.category)
+            .neq('id', product.id)
+            .limit(8)
+        : null;
+
+      const sellerQuery = product.seller_id
+        ? supabase
+            .from('products')
+            .select('*')
+            .eq('seller_id', product.seller_id)
+            .neq('id', product.id)
+            .limit(8)
+        : null;
+
+      const queries = [categoryQuery, sellerQuery].filter(Boolean) as NonNullable<typeof categoryQuery>[];
+      const results = await Promise.all(queries.map(async query => {
+        const { data, error } = await query;
+        if (error) throw error;
+        return data as SuggestedProduct[];
+      }));
+
+      const merged = results.flat();
+      const unique = new Map<string, SuggestedProduct>();
+      merged.forEach(item => {
+        if (!unique.has(item.id)) unique.set(item.id, item);
+      });
+
+      return Array.from(unique.values()).slice(0, 4);
+    },
+    enabled: !!product,
   });
 
   const displayPrice = selectedVariant ? Number(selectedVariant.price) : Number(product?.price || 0);
@@ -287,6 +331,22 @@ export default function ProductDetail() {
           )}
         </div>
       </div>
+
+      {suggestedProducts.length > 0 && (
+        <section className="mt-16">
+          <div className="mb-6 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">Recommended</p>
+              <h2 className="text-2xl font-heading">You may also like</h2>
+            </div>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {suggestedProducts.map(productItem => (
+              <ProductCard key={productItem.id} product={productItem} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

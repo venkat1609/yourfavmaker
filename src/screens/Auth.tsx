@@ -31,8 +31,8 @@ export default function Auth() {
         toast.success('Welcome back');
         router.push('/');
       }
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Authentication failed');
     } finally {
       setLoading(false);
     }

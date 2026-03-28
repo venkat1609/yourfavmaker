@@ -12,6 +12,31 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
 
+type AdminOrderItem = {
+  id: string;
+  product_name: string;
+  variant_name: string | null;
+  price: number;
+  quantity: number;
+};
+
+type AdminOrder = {
+  id: string;
+  user_id: string;
+  created_at: string;
+  status: string;
+  total: number;
+  shipping_address: Record<string, string> | null;
+  razorpay_payment_id: string | null;
+  razorpay_order_id: string | null;
+  order_items: AdminOrderItem[];
+  profile: {
+    full_name: string | null;
+    email: string | null;
+    phone: string | null;
+  } | null;
+};
+
 export default function Orders() {
   const queryClient = useQueryClient();
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
@@ -28,7 +53,7 @@ export default function Orders() {
       const userIds = [...new Set((ordersData || []).map(o => o.user_id))];
       const { data: profilesData } = await supabase.from('profiles').select('user_id, full_name, email, phone').in('user_id', userIds);
       const profileMap = new Map((profilesData || []).map(p => [p.user_id, p]));
-      return (ordersData || []).map(o => ({ ...o, profile: profileMap.get(o.user_id) || null }));
+      return (ordersData || []).map(o => ({ ...(o as unknown as AdminOrder), profile: profileMap.get(o.user_id) || null })) as AdminOrder[];
     },
   });
 
@@ -44,7 +69,7 @@ export default function Orders() {
     let result = [...orders];
     if (search.trim()) {
       const q = search.toLowerCase();
-      result = result.filter((o: any) => o.id.toLowerCase().includes(q) || (o.profile?.full_name || '').toLowerCase().includes(q) || (o.profile?.email || '').toLowerCase().includes(q));
+      result = result.filter((o: AdminOrder) => o.id.toLowerCase().includes(q) || (o.profile?.full_name || '').toLowerCase().includes(q) || (o.profile?.email || '').toLowerCase().includes(q));
     }
     if (filterStatus !== 'all') result = result.filter(o => o.status === filterStatus);
     return result;
@@ -77,7 +102,7 @@ export default function Orders() {
       <p className="text-xs text-muted-foreground mb-4">{filtered.length} order{filtered.length !== 1 ? 's' : ''}</p>
 
       <div className="space-y-4">
-        {pageOrders.map((order: any) => {
+        {pageOrders.map((order: AdminOrder) => {
           const isExpanded = expandedOrder === order.id;
           const shipping = order.shipping_address as Record<string, string> | null;
           return (
@@ -140,7 +165,7 @@ export default function Orders() {
                       <table className="w-full text-sm">
                         <thead><tr className="border-b bg-muted/50"><th className="text-left p-2.5 font-medium text-xs">Product</th><th className="text-right p-2.5 font-medium text-xs">Price</th><th className="text-right p-2.5 font-medium text-xs">Qty</th><th className="text-right p-2.5 font-medium text-xs">Total</th></tr></thead>
                         <tbody>
-                          {(order.order_items || []).map((item: any) => (
+                          {(order.order_items || []).map((item: AdminOrderItem) => (
                             <tr key={item.id} className="border-b last:border-0">
                               <td className="p-2.5"><p>{item.product_name}</p>{item.variant_name && <p className="text-xs text-muted-foreground">{item.variant_name}</p>}</td>
                               <td className="p-2.5 text-right text-muted-foreground">₹{Number(item.price).toFixed(2)}</td>

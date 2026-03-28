@@ -1,7 +1,8 @@
-import { LayoutDashboard, ArrowLeft, Store, Plus } from 'lucide-react';
+import { LayoutDashboard, ArrowLeft, Store, Plus, Package, ShoppingCart, MessageSquare, Settings, ChevronDown, Landmark } from 'lucide-react';
 import Link from 'next/link';
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Sidebar,
   SidebarContent,
@@ -11,11 +12,15 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarFooter,
   useSidebar,
 } from '@/components/ui/sidebar';
 import type { Database } from '@/integrations/supabase/types';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 type SellerRow = Database['public']['Tables']['sellers']['Row'];
 
@@ -29,16 +34,37 @@ const HEADER_OFFSET = '4rem';
 export function SellerSidebar({
   sellers,
   activeSellerSlug,
+  activeSection,
 }: {
   sellers: SellerRow[];
   activeSellerSlug: string | null;
+  activeSection?: string | null;
 }) {
   const { state } = useSidebar();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [openStores, setOpenStores] = useState<Record<string, boolean>>({});
   const collapsed = state === 'collapsed';
   const activeStoreHref = '/seller/dashboard';
-  const isDashboardActive = pathname === '/seller/dashboard' && !searchParams.get('store');
+  const isDashboardActive = pathname === '/seller/dashboard' && !searchParams?.get('store');
+  const isStoreSectionActive = (section: string) => {
+    if (!activeSellerSlug) return false;
+    const currentSection = activeSection || searchParams?.get('section') || 'overview';
+    return currentSection === section;
+  };
+
+  useEffect(() => {
+    if (!activeSellerSlug) return;
+    setOpenStores((prev) => ({ ...prev, [activeSellerSlug]: true }));
+  }, [activeSellerSlug]);
+
+  const sellerSections = [
+    { title: 'Products', section: 'products', icon: Package },
+    { title: 'Orders', section: 'orders', icon: ShoppingCart },
+    { title: 'Customer Inquiry', section: 'inquiries', icon: MessageSquare },
+    { title: 'Settings', section: 'settings', icon: Settings },
+    { title: 'Earnings & Payments', section: 'earnings', icon: Landmark },
+  ] as const;
 
   return (
     <Sidebar
@@ -69,22 +95,61 @@ export function SellerSidebar({
             <SidebarMenu>
               {sellers.map((seller) => {
                 const isActive = seller.slug === activeSellerSlug;
+                const isOpen = openStores[seller.slug] ?? isActive;
                 return (
-                  <SidebarMenuItem key={seller.id}>
-                    <SidebarMenuButton asChild>
-                      <Link
-                        href={`/seller/dashboard?store=${encodeURIComponent(seller.slug)}`}
-                        className={cn(navLinkClassName, isActive && navLinkActiveClassName)}
-                      >
-                        <Store className="h-4 w-4 flex-shrink-0 transition-transform duration-200 group-hover:scale-110 group-focus-within:scale-110 group-active:scale-95" />
+                  <Collapsible key={seller.id} open={isOpen} onOpenChange={(open) => setOpenStores((prev) => ({ ...prev, [seller.slug]: open }))}>
+                    <SidebarMenuItem>
+                      <div className="flex items-center gap-1">
+                        <SidebarMenuButton asChild className="flex-1">
+                          <Link
+                            href={`/seller/dashboard?store=${encodeURIComponent(seller.slug)}`}
+                            className={cn(navLinkClassName, isActive && navLinkActiveClassName)}
+                          >
+                            <Store className="h-4 w-4 flex-shrink-0 transition-transform duration-200 group-hover:scale-110 group-focus-within:scale-110 group-active:scale-95" />
+                            {!collapsed && (
+                              <span className="min-w-0 flex-1 truncate transition-transform duration-200 group-hover:translate-x-0.5 group-focus-within:translate-x-0.5">
+                                {seller.name}
+                              </span>
+                            )}
+                          </Link>
+                        </SidebarMenuButton>
                         {!collapsed && (
-                          <span className="min-w-0 flex-1 truncate transition-transform duration-200 group-hover:translate-x-0.5 group-focus-within:translate-x-0.5">
-                            {seller.name}
-                          </span>
+                          <CollapsibleTrigger asChild>
+                            <button
+                              type="button"
+                              className={cn(
+                                'mr-1 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+                                isOpen && 'bg-accent text-accent-foreground',
+                              )}
+                              aria-label={isOpen ? `Collapse ${seller.name}` : `Expand ${seller.name}`}
+                            >
+                              <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', isOpen && 'rotate-180')} />
+                            </button>
+                          </CollapsibleTrigger>
                         )}
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                      </div>
+
+                      {!collapsed && (
+                        <CollapsibleContent>
+                          <SidebarMenuSub className="mt-1">
+                            {sellerSections.map((item) => {
+                              const isSectionActive = isStoreSectionActive(item.section);
+                              return (
+                                <SidebarMenuSubItem key={item.section}>
+                                  <SidebarMenuSubButton asChild isActive={isSectionActive}>
+                                    <Link href={`/seller/dashboard?store=${encodeURIComponent(seller.slug)}&section=${item.section}`}>
+                                      <item.icon className="h-4 w-4" />
+                                      <span>{item.title}</span>
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              );
+                            })}
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
+                      )}
+                    </SidebarMenuItem>
+                  </Collapsible>
                 );
               })}
             </SidebarMenu>

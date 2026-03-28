@@ -75,14 +75,20 @@ export default function SellerOnboarding() {
   };
 
   return (
-    <div className="container max-w-xl py-12 animate-fade-in">
-      <div className="flex items-center gap-3 mb-8">
-        <Store className="h-6 w-6 text-accent" />
-        <h1 className="text-3xl font-heading">Become a Seller</h1>
+    <div className="container max-w-6xl py-12 animate-fade-in">
+      <div className="flex flex-col gap-6 mb-10">
+        <div className="flex items-center gap-3">
+          <Store className="h-6 w-6 text-accent" />
+          <h1 className="text-3xl font-heading">Become a Seller</h1>
+        </div>
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          Start free with 10 products, then upgrade as your catalogue grows.
+        </p>
       </div>
 
       {/* Steps indicator */}
-      <div className="flex items-center gap-1 mb-10">
+      <div className="max-w-xl mx-auto">
+        <div className="flex items-center gap-1 mb-10">
         {STEPS.map((s, i) => (
           <div key={s} className="flex items-center flex-1">
             <div className={`flex items-center justify-center h-8 w-8 rounded-full text-xs font-medium transition-colors ${i <= step ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
@@ -92,7 +98,7 @@ export default function SellerOnboarding() {
             {i < STEPS.length - 1 && <div className={`flex-1 h-px mx-3 ${i < step ? 'bg-primary' : 'bg-border'}`} />}
           </div>
         ))}
-      </div>
+        </div>
 
       {/* Step 0: Store Info */}
       {step === 0 && (
@@ -214,6 +220,7 @@ export default function SellerOnboarding() {
             {loading ? 'Submitting...' : 'Submit Application'}
           </Button>
         )}
+      </div>
       </div>
     </div>
   );

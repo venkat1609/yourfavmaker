@@ -14,12 +14,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, X, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Search, GripVertical } from 'lucide-react';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
 import { useCategories, useTags, useSellers } from '@/hooks/useAdminData';
 import type { Database } from '@/integrations/supabase/types';
 import type { ProductImageItem } from '@/lib/productImages';
-import { createProductImageItemsFromFiles, revokeProductImageItems, resolveProductImageUrls } from '@/lib/productImages';
+import { createProductImageItemsFromFiles, reorderProductImageItems, revokeProductImageItems, resolveProductImageUrls } from '@/lib/productImages';
+import { cn } from '@/lib/utils';
 
 type ProductRow = Database['public']['Tables']['products']['Row'];
 
@@ -161,6 +162,10 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
   const [activeTab, setActiveTab] = useState('general');
   const [images, setImages] = useState<ProductImageItem[]>([]);
   const imagesRef = useRef<ProductImageItem[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [draggedImageId, setDraggedImageId] = useState<string | null>(null);
+  const [dragOverImageId, setDragOverImageId] = useState<string | null>(null);
+  const [isUploadTileActive, setIsUploadTileActive] = useState(false);
   const [form, setForm] = useState({
     name: product?.name || '', description: product?.description || '',
     price: product?.price?.toString() || '', compare_at_price: product?.compare_at_price?.toString() || '',
@@ -190,12 +195,24 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
 
   const { data: existingAttrs } = useQuery({
     queryKey: ['product-attributes', product?.id],
-    queryFn: async () => { const { data, error } = await supabase.from('product_attributes').select('*').eq('product_id', product.id).order('display_order'); if (error) throw error; return data; },
+    queryFn: async () => {
+      const productId = product?.id;
+      if (!productId) return [];
+      const { data, error } = await supabase.from('product_attributes').select('*').eq('product_id', productId).order('display_order');
+      if (error) throw error;
+      return data;
+    },
     enabled: !!product && open,
   });
   const { data: existingVariants } = useQuery({
     queryKey: ['product-variants', product?.id],
-    queryFn: async () => { const { data, error } = await supabase.from('product_variants').select('*').eq('product_id', product.id).order('created_at'); if (error) throw error; return data; },
+    queryFn: async () => {
+      const productId = product?.id;
+      if (!productId) return [];
+      const { data, error } = await supabase.from('product_variants').select('*').eq('product_id', productId).order('created_at');
+      if (error) throw error;
+      return data;
+    },
     enabled: !!product && open,
   });
 
@@ -204,6 +221,13 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
   useEffect(() => {
     imagesRef.current = images;
   }, [images]);
+  useEffect(() => {
+    if (!open) {
+      setDraggedImageId(null);
+      setDragOverImageId(null);
+      setIsUploadTileActive(false);
+    }
+  }, [open]);
   useEffect(() => {
     if (open) {
       setImages(initialImages);
@@ -215,6 +239,20 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
     });
   }, [open, initialImages]);
   useEffect(() => () => revokeProductImageItems(imagesRef.current), []);
+
+  const moveImage = (fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    setImages(prev => {
+      const fromIndex = prev.findIndex(item => item.id === fromId);
+      const toIndex = prev.findIndex(item => item.id === toId);
+      return reorderProductImageItems(prev, fromIndex, toIndex);
+    });
+  };
+
+  const appendImagesFromFiles = (files: File[]) => {
+    if (files.length === 0) return;
+    setImages(prev => [...prev, ...createProductImageItemsFromFiles(files)]);
+  };
 
   const addAttribute = () => setAttributes([...attributes, { name: '', values: [], display_order: attributes.length, _newValue: '' }]);
   const removeAttribute = (idx: number) => setAttributes(attributes.filter((_, i) => i !== idx));
@@ -256,8 +294,15 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
         seller_id: form.seller_id || null,
       };
       let productId = product?.id;
-      if (product) { const { error } = await supabase.from('products').update(productData).eq('id', product.id); if (error) throw error; }
-      else { const { data, error } = await supabase.from('products').insert(productData).select().single(); if (error) throw error; productId = data.id; }
+      if (product) {
+        const { error } = await supabase.from('products').update(productData).eq('id', product.id);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.from('products').insert(productData).select().single();
+        if (error) throw error;
+        productId = data.id;
+      }
+      if (!productId) throw new Error('Unable to resolve product id');
       if (product) await supabase.from('product_attributes').delete().eq('product_id', productId);
       const validAttrs = attributes.filter(a => a.name.trim());
       if (validAttrs.length > 0) { const { error } = await supabase.from('product_attributes').insert(validAttrs.map((a, i) => ({ product_id: productId, name: a.name.trim(), values: a.values, display_order: i }))); if (error) throw error; }
@@ -312,64 +357,86 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
               </div>
               <div className="space-y-2">
                 <Label>Product Images</Label>
-                <Input
+                <input
+                  ref={fileInputRef}
                   type="file"
                   accept="image/*"
                   multiple
+                  className="hidden"
                   onChange={e => {
-                    const files = Array.from(e.target.files || []);
-                    if (files.length > 0) {
-                      setImages(prev => [...prev, ...createProductImageItemsFromFiles(files)]);
-                    }
+                    appendImagesFromFiles(Array.from(e.target.files || []));
                     e.currentTarget.value = '';
                   }}
                 />
-                <p className="text-xs text-muted-foreground">
-                  {product
-                    ? 'Reorder images with the arrows. The first image becomes the primary image.'
-                    : 'Upload one or more images for the product gallery.'}
-                </p>
-                {images.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Gallery Order</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {images.map((image, index) => (
-                        <div key={image.id} className="relative overflow-hidden rounded-sm border bg-secondary">
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      onDragOver={event => {
+                        event.preventDefault();
+                        setIsUploadTileActive(true);
+                      }}
+                      onDragLeave={event => {
+                        setIsUploadTileActive(false);
+                      }}
+                      onDrop={event => {
+                        event.preventDefault();
+                        setIsUploadTileActive(false);
+                        appendImagesFromFiles(Array.from(event.dataTransfer.files || []).filter(file => file.type.startsWith('image/')));
+                      }}
+                      className={cn(
+                        'group relative flex aspect-square h-full w-full flex-col items-center justify-center gap-3 overflow-hidden rounded-sm border border-dashed bg-secondary/40 p-4 text-center transition-all duration-200',
+                        'hover:border-primary/40 hover:bg-secondary/70',
+                        isUploadTileActive && 'border-primary/60 bg-secondary/80 ring-2 ring-primary ring-offset-2 shadow-md scale-[0.99]',
+                      )}
+                    >
+                      <div className="flex h-12 w-12 items-center justify-center rounded-sm border bg-background shadow-sm transition-transform group-hover:scale-105">
+                        <Plus className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">Upload images</p>
+                        <p className="text-xs text-muted-foreground">Click or drop files</p>
+                      </div>
+                    </button>
+                    {images.map((image, index) => (
+                        <div
+                          key={image.id}
+                          draggable
+                          onDragStart={() => setDraggedImageId(image.id)}
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            if (draggedImageId && draggedImageId !== image.id) {
+                              setDragOverImageId(image.id);
+                            }
+                          }}
+                          onDragLeave={() => setDragOverImageId(current => (current === image.id ? null : current))}
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            if (draggedImageId) {
+                              moveImage(draggedImageId, image.id);
+                            }
+                            setDraggedImageId(null);
+                            setDragOverImageId(null);
+                          }}
+                          onDragEnd={() => {
+                            setDraggedImageId(null);
+                            setDragOverImageId(null);
+                          }}
+                          className={cn(
+                            'group relative overflow-hidden rounded-sm border bg-secondary transition-all duration-200',
+                            draggedImageId === image.id && 'scale-[0.98] opacity-60',
+                            dragOverImageId === image.id && 'ring-2 ring-primary ring-offset-2',
+                          )}
+                        >
                           <img src={image.previewUrl} alt={`Product image ${index + 1}`} className="aspect-square h-full w-full object-cover" />
                           {index === 0 && (
                             <div className="absolute left-1 top-1 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider">
                               Primary
                             </div>
                           )}
-                          <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setImages(prev => {
-                                if (index === 0) return prev;
-                                const next = [...prev];
-                                [next[index - 1], next[index]] = [next[index], next[index - 1]];
-                                return next;
-                              })}
-                              disabled={index === 0}
-                              className="rounded-full bg-background/90 p-1 text-foreground shadow disabled:opacity-40"
-                              aria-label={`Move image ${index + 1} left`}
-                            >
-                              <ChevronLeft className="h-3 w-3" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setImages(prev => {
-                                if (index === prev.length - 1) return prev;
-                                const next = [...prev];
-                                [next[index + 1], next[index]] = [next[index], next[index + 1]];
-                                return next;
-                              })}
-                              disabled={index === images.length - 1}
-                              className="rounded-full bg-background/90 p-1 text-foreground shadow disabled:opacity-40"
-                              aria-label={`Move image ${index + 1} right`}
-                            >
-                              <ChevronRight className="h-3 w-3" />
-                            </button>
+                          <div className="absolute left-1 top-1/2 -translate-y-1/2 rounded-full bg-background/90 p-1 text-foreground shadow opacity-0 transition-opacity group-hover:opacity-100">
+                            <GripVertical className="h-3 w-3" />
                           </div>
                           <button
                             type="button"
@@ -386,10 +453,9 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
                             <X className="h-3 w-3" />
                           </button>
                         </div>
-                      ))}
-                    </div>
+                    ))}
                   </div>
-                )}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Seller</Label>

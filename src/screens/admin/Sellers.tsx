@@ -8,10 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Trash2, Search, Eye, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Trash2, Search, Eye, CheckCircle, XCircle, Clock, Package, type LucideIcon } from 'lucide-react';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import type { Database } from '@/integrations/supabase/types';
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-accent/10 text-accent border-accent/30',
@@ -19,18 +21,21 @@ const STATUS_COLORS: Record<string, string> = {
   rejected: 'bg-destructive/10 text-destructive border-destructive/30',
 };
 
-const STATUS_ICONS: Record<string, any> = {
+const STATUS_ICONS: Record<string, LucideIcon> = {
   pending: Clock,
   approved: CheckCircle,
   rejected: XCircle,
 };
+
+type SellerRow = Database['public']['Tables']['sellers']['Row'];
+type SellerStatus = SellerRow['status'];
 
 export default function Sellers() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [viewSeller, setViewSeller] = useState<any>(null);
+  const [viewSeller, setViewSeller] = useState<SellerRow | null>(null);
   const ITEMS_PER_PAGE = 10;
 
   const { data: sellers = [], isLoading } = useQuery({
@@ -40,6 +45,21 @@ export default function Sellers() {
       if (error) throw error;
       return data;
     },
+  });
+
+  const { data: sellerProducts = [] } = useQuery({
+    queryKey: ['admin-seller-products', viewSeller?.id],
+    queryFn: async () => {
+      if (!viewSeller?.id) return [];
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('seller_id', viewSeller.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!viewSeller?.id,
   });
 
   const updateStatus = useMutation({
@@ -127,7 +147,7 @@ export default function Sellers() {
               <tbody>
                 {pageSellers.map(s => {
                   const initials = s.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
-                  const StatusIcon = STATUS_ICONS[s.status] || Clock;
+                  const StatusIcon = STATUS_ICONS[s.status as SellerStatus] || Clock;
                   return (
                     <tr key={s.id} className="border-b last:border-0">
                       <td className="p-3">
@@ -194,38 +214,74 @@ export default function Sellers() {
                   {viewSeller.name}
                 </DialogTitle>
               </DialogHeader>
-              <div className="space-y-6 mt-4">
-                <Section title="Store Info">
-                  <Row label="Slug" value={viewSeller.slug} />
-                  <Row label="Phone" value={viewSeller.phone} />
-                  <Row label="Description" value={viewSeller.description} />
-                </Section>
-                <Section title="Address">
-                  <Row label="Street" value={viewSeller.address_street} />
-                  <Row label="City" value={viewSeller.address_city} />
-                  <Row label="State" value={viewSeller.address_state} />
-                  <Row label="ZIP" value={viewSeller.address_zip} />
-                  <Row label="Country" value={viewSeller.address_country} />
-                </Section>
-                <Section title="Bank & Tax">
-                  <Row label="Bank" value={viewSeller.bank_name} />
-                  <Row label="Account" value={viewSeller.bank_account_number ? `****${viewSeller.bank_account_number.slice(-4)}` : '-'} />
-                  <Row label="IFSC" value={viewSeller.bank_ifsc} />
-                  <Row label="Tax ID" value={viewSeller.tax_id} />
-                </Section>
-                <div className="flex gap-2">
-                  {viewSeller.status !== 'approved' && (
-                    <Button className="flex-1" onClick={() => updateStatus.mutate({ id: viewSeller.id, status: 'approved' })} disabled={updateStatus.isPending}>
-                      <CheckCircle className="h-4 w-4 mr-1" /> Approve
-                    </Button>
-                  )}
-                  {viewSeller.status !== 'rejected' && (
-                    <Button variant="outline" className="flex-1 text-destructive" onClick={() => updateStatus.mutate({ id: viewSeller.id, status: 'rejected' })} disabled={updateStatus.isPending}>
-                      <XCircle className="h-4 w-4 mr-1" /> Reject
-                    </Button>
-                  )}
-                </div>
-              </div>
+              <Tabs defaultValue="store" className="mt-4">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="store">Store</TabsTrigger>
+                  <TabsTrigger value="products">Products</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="store" className="space-y-6 pt-4">
+                  <Section title="Store Info">
+                    <Row label="Slug" value={viewSeller.slug} />
+                    <Row label="Phone" value={viewSeller.phone} />
+                    <Row label="Description" value={viewSeller.description} />
+                  </Section>
+                  <Section title="Address">
+                    <Row label="Street" value={viewSeller.address_street} />
+                    <Row label="City" value={viewSeller.address_city} />
+                    <Row label="State" value={viewSeller.address_state} />
+                    <Row label="ZIP" value={viewSeller.address_zip} />
+                    <Row label="Country" value={viewSeller.address_country} />
+                  </Section>
+                  <Section title="Bank & Tax">
+                    <Row label="Bank" value={viewSeller.bank_name} />
+                    <Row label="Account" value={viewSeller.bank_account_number ? `****${viewSeller.bank_account_number.slice(-4)}` : '-'} />
+                    <Row label="IFSC" value={viewSeller.bank_ifsc} />
+                    <Row label="Tax ID" value={viewSeller.tax_id} />
+                  </Section>
+                  <div className="flex gap-2">
+                    {viewSeller.status !== 'approved' && (
+                      <Button className="flex-1" onClick={() => updateStatus.mutate({ id: viewSeller.id, status: 'approved' })} disabled={updateStatus.isPending}>
+                        <CheckCircle className="h-4 w-4 mr-1" /> Approve
+                      </Button>
+                    )}
+                    {viewSeller.status !== 'rejected' && (
+                      <Button variant="outline" className="flex-1 text-destructive" onClick={() => updateStatus.mutate({ id: viewSeller.id, status: 'rejected' })} disabled={updateStatus.isPending}>
+                        <XCircle className="h-4 w-4 mr-1" /> Reject
+                      </Button>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="products" className="space-y-4 pt-4">
+                  <div className="rounded-sm border p-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Package className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="font-heading text-sm">Manage Products</h3>
+                    </div>
+                    {sellerProducts.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No products listed for this store yet.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {sellerProducts.map(product => (
+                          <div key={product.id} className="flex items-center justify-between gap-3 rounded-sm border p-3">
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">{product.name}</p>
+                              <p className="text-xs text-muted-foreground">{product.category || 'General'}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant={product.is_active ? 'default' : 'secondary'} className="text-xs">
+                                {product.is_active ? 'Active' : 'Inactive'}
+                              </Badge>
+                              <span className="text-sm text-muted-foreground">₹{Number(product.price).toFixed(2)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
             </>
           )}
         </DialogContent>

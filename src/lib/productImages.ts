@@ -55,6 +55,23 @@ export function revokeProductImageItems(items: ProductImageItem[]) {
   });
 }
 
+export function reorderProductImageItems(items: ProductImageItem[], fromIndex: number, toIndex: number) {
+  if (
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= items.length ||
+    toIndex >= items.length ||
+    fromIndex === toIndex
+  ) {
+    return items;
+  }
+
+  const next = [...items];
+  const [moved] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, moved);
+  return next;
+}
+
 export async function resolveProductImageUrls(items: ProductImageItem[]) {
   const newFiles = items
     .filter((item): item is ProductImageItem & { file: File } => item.kind === 'new' && !!item.file)

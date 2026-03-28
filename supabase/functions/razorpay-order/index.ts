@@ -1,10 +1,33 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient, type User } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+type CartItemRow = {
+  product_id: string;
+  variant_id: string | null;
+  quantity: number;
+  products: {
+    id: string;
+    name: string;
+    price: number;
+    image_url: string | null;
+    stock: number;
+  };
+};
+
+type VariantRow = {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  options: Record<string, string>;
+};
+
+type ShippingAddress = Record<string, string> | null;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -14,6 +37,7 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
     const razorpayKeyId = Deno.env.get("RAZORPAY_KEY_ID");
     const razorpayKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET");
 
@@ -24,7 +48,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Authenticate user
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -33,13 +56,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await createClient(
-      supabaseUrl,
-      Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!
-    ).auth.getUser(token);
+    const authClient = createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    const { data: { user }, error: userError } = await authClient.auth.getUser(token);
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -47,37 +68,38 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { action } = await req.json();
+    const body = await req.json() as { action?: string; shipping_address?: ShippingAddress } & Record<string, unknown>;
 
-  const body = await req.json();
-  const { action, shipping_address } = body;
+    if (body.action === "create") {
+      return await handleCreate(supabase, user, razorpayKeyId, razorpayKeySecret, body.shipping_address ?? null);
+    }
 
-  if (action === "create") {
-    return await handleCreate(supabase, user, razorpayKeyId, razorpayKeySecret, shipping_address);
-  } else if (action === "verify") {
-    return await handleVerify(body, supabase, user, razorpayKeySecret);
-  }
+    if (body.action === "verify") {
+      return await handleVerify(supabase, user, razorpayKeySecret, body);
+    }
 
     return new Response(JSON.stringify({ error: "Invalid action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  } catch (error: unknown) {
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unexpected error" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 });
 
 async function handleCreate(
-  supabase: any,
-  user: any,
+  supabase: SupabaseClient,
+  user: User,
   razorpayKeyId: string,
   razorpayKeySecret: string,
-  shippingAddress?: any
+  shippingAddress: ShippingAddress,
 ) {
-  // Get user's cart items
   const { data: cartItems, error: cartError } = await supabase
     .from("cart_items")
     .select("id, product_id, variant_id, quantity, products(id, name, price, image_url, stock)")
@@ -90,21 +112,24 @@ async function handleCreate(
     });
   }
 
-  // Fetch variant data
-  const variantIds = cartItems.filter((i: any) => i.variant_id).map((i: any) => i.variant_id);
-  let variantMap = new Map();
+  const cartRows = cartItems as unknown as CartItemRow[];
+  const variantIds = cartRows.flatMap(item => (item.variant_id ? [item.variant_id] : []));
+  const variantMap = new Map<string, VariantRow>();
+
   if (variantIds.length > 0) {
     const { data: variants } = await supabase
       .from("product_variants")
       .select("id, name, price, stock, options")
       .in("id", variantIds);
-    if (variants) variants.forEach((v: any) => variantMap.set(v.id, v));
+
+    (variants ?? []).forEach((variant) => {
+      variantMap.set(variant.id, variant as VariantRow);
+    });
   }
 
-  // Calculate total in paise (INR smallest unit)
   let totalInr = 0;
-  const itemDetails = cartItems.map((item: any) => {
-    const variant = item.variant_id ? variantMap.get(item.variant_id) : null;
+  const itemDetails = cartRows.map((item) => {
+    const variant = item.variant_id ? variantMap.get(item.variant_id) ?? null : null;
     const price = variant ? variant.price : item.products.price;
     totalInr += price * item.quantity;
     return {
@@ -120,7 +145,6 @@ async function handleCreate(
 
   const amountInPaise = Math.round(totalInr * 100);
 
-  // Create Razorpay order
   const razorpayRes = await fetch("https://api.razorpay.com/v1/orders", {
     method: "POST",
     headers: {
@@ -134,7 +158,7 @@ async function handleCreate(
     }),
   });
 
-  const razorpayOrder = await razorpayRes.json();
+  const razorpayOrder = await razorpayRes.json() as { id: string };
 
   if (!razorpayRes.ok) {
     return new Response(JSON.stringify({ error: "Failed to create Razorpay order", details: razorpayOrder }), {
@@ -143,7 +167,6 @@ async function handleCreate(
     });
   }
 
-  // Create order in our DB with pending status
   const { data: order, error: orderError } = await supabase
     .from("orders")
     .insert({
@@ -151,7 +174,7 @@ async function handleCreate(
       total: totalInr,
       status: "pending",
       razorpay_order_id: razorpayOrder.id,
-      shipping_address: shippingAddress || null,
+      shipping_address: shippingAddress,
     })
     .select()
     .single();
@@ -163,14 +186,13 @@ async function handleCreate(
     });
   }
 
-  // Insert order items
-  const orderItems = itemDetails.map((item: any) => ({
-    ...item,
-    order_id: order.id,
-  }));
-  await supabase.from("order_items").insert(orderItems);
+  await supabase.from("order_items").insert(
+    itemDetails.map((item) => ({
+      ...item,
+      order_id: order.id,
+    }))
+  );
 
-  // Get user profile for prefill
   const { data: profile } = await supabase
     .from("profiles")
     .select("full_name, email, phone")
@@ -195,14 +217,16 @@ async function handleCreate(
 }
 
 async function handleVerify(
-  body: any,
-  supabase: any,
-  user: any,
-  razorpayKeySecret: string
+  supabase: SupabaseClient,
+  user: User,
+  razorpayKeySecret: string,
+  body: Record<string, unknown>,
 ) {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, order_id } = body;
+  const razorpay_order_id = typeof body.razorpay_order_id === "string" ? body.razorpay_order_id : "";
+  const razorpay_payment_id = typeof body.razorpay_payment_id === "string" ? body.razorpay_payment_id : "";
+  const razorpay_signature = typeof body.razorpay_signature === "string" ? body.razorpay_signature : "";
+  const order_id = typeof body.order_id === "string" ? body.order_id : "";
 
-  // Verify signature using HMAC SHA256
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
@@ -219,7 +243,6 @@ async function handleVerify(
     .join("");
 
   if (expectedSignature !== razorpay_signature) {
-    // Mark order as failed
     await supabase
       .from("orders")
       .update({ status: "payment_failed" })
@@ -232,7 +255,6 @@ async function handleVerify(
     });
   }
 
-  // Update order as paid
   await supabase
     .from("orders")
     .update({
@@ -242,7 +264,6 @@ async function handleVerify(
     .eq("id", order_id)
     .eq("user_id", user.id);
 
-  // Clear user's cart
   await supabase.from("cart_items").delete().eq("user_id", user.id);
 
   return new Response(

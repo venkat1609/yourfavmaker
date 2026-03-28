@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function checkRoles(userId: string) {
     const { data: adminData } = await supabase.rpc('has_role', { _user_id: userId, _role: 'admin' });
     setIsAdmin(!!adminData);
-    const { data: sellerData } = await supabase.rpc('has_role', { _user_id: userId, _role: 'seller' as any });
+    const { data: sellerData } = await supabase.rpc('has_role', { _user_id: userId, _role: 'seller' });
     setIsSeller(!!sellerData);
   }
 

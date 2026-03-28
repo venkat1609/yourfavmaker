@@ -14,7 +14,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Search, Package, Clock, XCircle, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Search,
+  Package,
+  Clock,
+  XCircle,
+  X,
+  MessageSquare,
+  GripVertical,
+} from 'lucide-react';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
 import { useCategories, useTags } from '@/hooks/useAdminData';
 import type { Database } from '@/integrations/supabase/types';
@@ -23,11 +34,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { SellerSidebar } from '@/components/SellerSidebar';
 import type { ProductImageItem } from '@/lib/productImages';
-import { createProductImageItemsFromFiles, revokeProductImageItems, resolveProductImageUrls } from '@/lib/productImages';
+import { createProductImageItemsFromFiles, reorderProductImageItems, revokeProductImageItems, resolveProductImageUrls } from '@/lib/productImages';
 import { cn } from '@/lib/utils';
 
 type SellerRow = Database['public']['Tables']['sellers']['Row'];
 type ProductRow = Database['public']['Tables']['products']['Row'];
+type SellerSection = 'overview' | 'products' | 'orders' | 'inquiries' | 'settings' | 'earnings';
 
 type SellerStoreStats = {
   productCount: number;
@@ -183,11 +195,12 @@ export default function SellerDashboard() {
     enabled: !!user,
   });
 
-  const selectedStoreSlug = searchParams.get('store');
+  const selectedStoreSlug = searchParams?.get('store');
   const selectedSeller = useMemo(() => {
     if (!selectedStoreSlug) return null;
     return sellers.find(store => store.slug === selectedStoreSlug) || null;
   }, [sellers, selectedStoreSlug]);
+  const activeSection = ((searchParams?.get('section') || 'overview') as SellerSection);
 
   if (sellersLoading) return <div className="container py-12"><div className="h-40 bg-secondary rounded-sm animate-pulse" /></div>;
 
@@ -210,10 +223,10 @@ export default function SellerDashboard() {
     return <SellerOverviewDashboard sellers={sellers} />;
   }
 
-  return <SellerStoreDashboard seller={selectedSeller} sellers={sellers} />;
+  return <SellerStoreDashboard seller={selectedSeller} sellers={sellers} activeSection={activeSection} />;
 }
 
-function SellerStoreDashboard({ seller, sellers }: { seller: SellerRow; sellers: SellerRow[] }) {
+function SellerStoreDashboard({ seller, sellers, activeSection }: { seller: SellerRow; sellers: SellerRow[]; activeSection: SellerSection }) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const [page, setPage] = useState(1);
@@ -284,180 +297,305 @@ function SellerStoreDashboard({ seller, sellers }: { seller: SellerRow; sellers:
     { label: 'Sales', value: stats ? `₹${stats.revenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—' },
   ];
 
+  const tabContent = {
+    overview: {
+      title: 'Store Dashboard',
+      description: 'Combined snapshot of your store performance, operations, and activity.',
+    },
+    products: {
+      title: 'Products',
+      description: 'Create, search, reorder, and update products for this storefront.',
+    },
+    orders: {
+      title: 'Orders',
+      description: 'Track recent sales and fulfillment activity for this storefront.',
+    },
+    inquiries: {
+      title: 'Inquiries',
+      description: 'Messages from shoppers will appear here once the inbox is connected.',
+    },
+    settings: {
+      title: 'Store Settings',
+      description: 'Update the store identity, contact details, and address details.',
+    },
+    earnings: {
+      title: 'Earnings & Payments',
+      description: 'Review sales, payouts, and payment information for this storefront.',
+    },
+  } as const;
+
+  const currentTab = tabContent[activeSection as keyof typeof tabContent] || tabContent.overview;
+
   return (
     <SidebarProvider>
       <div className="min-h-[calc(100vh-4rem)] flex w-full">
-        <SellerSidebar sellers={sellers} activeSellerSlug={seller.slug} />
+        <SellerSidebar sellers={sellers} activeSellerSlug={seller.slug} activeSection={activeSection} />
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-12 flex items-center border-b px-4 gap-3">
             <SidebarTrigger />
             <span className="text-sm font-medium text-muted-foreground">
-              {seller.status === 'approved' ? 'Overview' : seller.status}
+              {seller.status === 'approved' ? currentTab.title : seller.status}
             </span>
           </header>
           <main className="flex-1 p-6 md:p-8 overflow-auto">
             <div className="animate-fade-in">
-              <div className="flex items-center justify-between mb-2">
-                <h1 className="text-2xl font-heading">Store Dashboard</h1>
-                <div className="flex items-center gap-2">
-                  <SellerStoreEditDialog seller={seller} onSaved={(updatedSlug) => {
-                    if (updatedSlug) {
-                      router.replace(`/seller/dashboard?store=${encodeURIComponent(updatedSlug)}`);
-                    }
-                    queryClient.invalidateQueries({ queryKey: ['my-sellers', seller.user_id] });
-                  }} />
-                  {isApproved && <SellerProductFormDialog sellerId={seller.id} />}
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground mb-6">
-                Overview for <strong>{seller.name}</strong> · <span className="font-medium">{seller.slug}</span>
-              </p>
-
-              {isApproved ? (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
-                    {metricCards.map(card => (
-                      <div key={card.label} className="border rounded-sm p-5 space-y-2">
-                        <p className="text-xs uppercase tracking-wider text-muted-foreground">{card.label}</p>
-                        <p className="text-2xl font-heading">{card.value}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="grid lg:grid-cols-2 gap-4 mb-8">
-                    <div className="border rounded-sm p-5 space-y-4">
-                      <p className="text-xs uppercase tracking-wider text-muted-foreground">Store Details</p>
-                      <div className="space-y-3 text-sm">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-muted-foreground">Name</span>
-                          <span className="font-medium text-right">{seller.name}</span>
-                        </div>
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-muted-foreground">Slug</span>
-                          <span className="font-medium text-right">{seller.slug}</span>
-                        </div>
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-muted-foreground">Status</span>
-                          <Badge variant="outline" className={cn(
-                            'capitalize',
-                            seller.status === 'approved' && 'border-success/30 text-success',
-                            seller.status === 'pending' && 'border-accent/30 text-accent',
-                            seller.status === 'rejected' && 'border-destructive/30 text-destructive',
-                          )}>
-                            {seller.status}
-                          </Badge>
-                        </div>
-                      </div>
+              {activeSection === 'settings' ? (
+                <section className="space-y-6">
+                  <SellerStoreSettingsForm
+                    seller={seller}
+                    onSaved={(updatedSlug) => {
+                      if (updatedSlug) {
+                        router.replace(`/seller/dashboard?store=${encodeURIComponent(updatedSlug)}`);
+                      }
+                      queryClient.invalidateQueries({ queryKey: ['my-sellers', seller.user_id] });
+                    }}
+                  />
+                </section>
+              ) : isApproved ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
+                    <div className="min-w-0 space-y-1">
+                      <h1 className="text-2xl font-heading">{currentTab.title}</h1>
+                      <p className="text-sm text-muted-foreground">{currentTab.description}</p>
                     </div>
-                    <div className="border rounded-sm p-5">
-                      <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">Recent Orders</p>
-                      {stats?.recentOrders.length ? (
-                        <div className="space-y-3">
-                          {stats.recentOrders.map(order => (
-                            <div key={order.id} className="flex items-center justify-between gap-3 text-sm">
-                              <div>
-                                <p className="font-medium">#{order.id.slice(0, 8)}</p>
-                                <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleDateString()}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="font-medium">₹{order.revenue.toFixed(2)}</p>
-                                <p className="text-xs text-muted-foreground capitalize">{order.status}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                    <div className="flex min-w-[11rem] justify-end">
+                      {activeSection === 'products' ? (
+                        <SellerProductFormDialog sellerId={seller.id} />
                       ) : (
-                        <p className="text-sm text-muted-foreground">No orders yet for this store.</p>
+                        <div className="h-9 w-[11rem]" aria-hidden="true" />
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-3 mb-4">
-                    <div>
-                      <h2 className="text-lg font-heading">Manage Products</h2>
-                      <p className="text-sm text-muted-foreground">Create, search, reorder, and update products for this storefront.</p>
-                    </div>
-                    <Badge variant="outline">{filtered.length} product{filtered.length !== 1 ? 's' : ''}</Badge>
-                  </div>
-
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="relative flex-1 max-w-sm">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input placeholder="Search your products..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
-                    </div>
-                  </div>
-
-                  {isLoading ? (
-                    <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 bg-secondary rounded-sm animate-pulse" />)}</div>
-                  ) : products.length === 0 ? (
-                    <div className="border rounded-sm p-12 text-center">
-                      <Package className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                      <p className="text-muted-foreground mb-4">You haven't added any products yet.</p>
-                      <SellerProductFormDialog sellerId={seller.id} />
-                    </div>
-                  ) : (
-                    <>
-                      <div className="border rounded-sm overflow-hidden">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b bg-muted/50">
-                              <th className="text-left p-3 font-medium">Product</th>
-                              <th className="text-left p-3 font-medium hidden md:table-cell">Category</th>
-                              <th className="text-right p-3 font-medium">Price</th>
-                              <th className="text-right p-3 font-medium hidden md:table-cell">Stock</th>
-                              <th className="text-center p-3 font-medium">Active</th>
-                              <th className="p-3"></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {pageProducts.map(p => (
-                              <tr key={p.id} className="border-b last:border-0">
-                                <td className="p-3">
-                                  <div className="flex items-center gap-3">
-                                    <div className="h-10 w-10 bg-secondary rounded-sm overflow-hidden flex-shrink-0">
-                                      {p.image_url && <img src={p.image_url} alt="" className="h-full w-full object-cover" />}
-                                    </div>
-                                    <span className="font-medium">{p.name}</span>
-                                  </div>
-                                </td>
-                                <td className="p-3 hidden md:table-cell text-muted-foreground">{p.category || '-'}</td>
-                                <td className="p-3 text-right">₹{Number(p.price).toFixed(2)}</td>
-                                <td className="p-3 text-right hidden md:table-cell">{p.stock}</td>
-                                <td className="p-3 text-center">
-                                  <Switch checked={p.is_active} onCheckedChange={v => toggleActive.mutate({ id: p.id, is_active: v })} />
-                                </td>
-                                <td className="p-3">
-                                  <div className="flex items-center justify-end gap-1">
-                                    <SellerProductFormDialog sellerId={seller.id} product={p} />
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(p.id)}>
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                  {activeSection === 'overview' && (
+                    <section className="space-y-8">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+                        {metricCards.map(card => (
+                          <div key={card.label} className="border rounded-sm p-5 space-y-2">
+                            <p className="text-xs uppercase tracking-wider text-muted-foreground">{card.label}</p>
+                            <p className="text-2xl font-heading">{card.value}</p>
+                          </div>
+                        ))}
                       </div>
-                      <PaginationControls currentPage={page} totalPages={totalPages} onPageChange={setPage} className="mt-6" />
-                    </>
+
+                      <div className="grid lg:grid-cols-2 gap-4">
+                        <div className="border rounded-sm p-5 space-y-4">
+                          <p className="text-xs uppercase tracking-wider text-muted-foreground">Store Details</p>
+                          <div className="space-y-3 text-sm">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-muted-foreground">Name</span>
+                              <span className="font-medium text-right">{seller.name}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-muted-foreground">Slug</span>
+                              <span className="font-medium text-right">{seller.slug}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-muted-foreground">Status</span>
+                              <Badge variant="outline" className={cn(
+                                'capitalize',
+                                seller.status === 'approved' && 'border-success/30 text-success',
+                                seller.status === 'pending' && 'border-accent/30 text-accent',
+                                seller.status === 'rejected' && 'border-destructive/30 text-destructive',
+                              )}>
+                                {seller.status}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="border rounded-sm p-5 space-y-4">
+                          <p className="text-xs uppercase tracking-wider text-muted-foreground">Store Summary</p>
+                          <div className="space-y-3 text-sm">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-muted-foreground">Products</span>
+                              <span className="font-medium text-right">{stats?.productCount ?? '—'}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-muted-foreground">Orders</span>
+                              <span className="font-medium text-right">{stats?.orderCount ?? '—'}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-muted-foreground">Units Sold</span>
+                              <span className="font-medium text-right">{stats?.unitsSold ?? '—'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </section>
                   )}
-                </>
+
+                  {activeSection === 'products' && (
+                    <section className="space-y-6">
+                      <div className="flex items-center gap-3">
+                        <div className="relative flex-1 max-w-sm">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input placeholder="Search your products..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+                        </div>
+                      </div>
+
+                      {isLoading ? (
+                        <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 bg-secondary rounded-sm animate-pulse" />)}</div>
+                      ) : products.length === 0 ? (
+                        <div className="border rounded-sm p-12 text-center">
+                          <Package className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                          <p className="text-muted-foreground mb-4">You haven't added any products yet.</p>
+                          <SellerProductFormDialog sellerId={seller.id} />
+                        </div>
+                      ) : (
+                        <>
+                          <div className="border rounded-sm overflow-hidden">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b bg-muted/50">
+                                  <th className="text-left p-3 font-medium">Product</th>
+                                  <th className="text-left p-3 font-medium hidden md:table-cell">Category</th>
+                                  <th className="text-right p-3 font-medium">Price</th>
+                                  <th className="text-right p-3 font-medium hidden md:table-cell">Stock</th>
+                                  <th className="text-center p-3 font-medium">Active</th>
+                                  <th className="p-3"></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {pageProducts.map(p => (
+                                  <tr key={p.id} className="border-b last:border-0">
+                                    <td className="p-3">
+                                      <div className="flex items-center gap-3">
+                                        <div className="h-10 w-10 bg-secondary rounded-sm overflow-hidden flex-shrink-0">
+                                          {p.image_url && <img src={p.image_url} alt="" className="h-full w-full object-cover" />}
+                                        </div>
+                                        <span className="font-medium">{p.name}</span>
+                                      </div>
+                                    </td>
+                                    <td className="p-3 hidden md:table-cell text-muted-foreground">{p.category || '-'}</td>
+                                    <td className="p-3 text-right">₹{Number(p.price).toFixed(2)}</td>
+                                    <td className="p-3 text-right hidden md:table-cell">{p.stock}</td>
+                                    <td className="p-3 text-center">
+                                      <Switch checked={p.is_active} onCheckedChange={v => toggleActive.mutate({ id: p.id, is_active: v })} />
+                                    </td>
+                                    <td className="p-3">
+                                      <div className="flex items-center justify-end gap-1">
+                                        <SellerProductFormDialog sellerId={seller.id} product={p} />
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(p.id)}>
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <PaginationControls currentPage={page} totalPages={totalPages} onPageChange={setPage} className="mt-6" />
+                          </>
+                      )}
+                    </section>
+                  )}
+
+                  {activeSection === 'orders' && (
+                    <section className="space-y-6">
+                      <div className="border rounded-sm p-5">
+                        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">Recent Orders</p>
+                        {stats?.recentOrders.length ? (
+                          <div className="space-y-3">
+                            {stats.recentOrders.map(order => (
+                              <div key={order.id} className="flex items-center justify-between gap-3 text-sm">
+                                <div>
+                                  <p className="font-medium">#{order.id.slice(0, 8)}</p>
+                                  <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleDateString()}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-medium">₹{order.revenue.toFixed(2)}</p>
+                                  <p className="text-xs text-muted-foreground capitalize">{order.status}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No orders yet for this store.</p>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {activeSection === 'inquiries' && (
+                    <section className="space-y-6">
+                      <div className="border rounded-sm p-8 text-center">
+                        <MessageSquare className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                        <p className="font-medium mb-2">No customer inbox yet</p>
+                        <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                          This section is ready for future customer messages, pre-sale questions, and support conversations.
+                        </p>
+                      </div>
+                    </section>
+                  )}
+
+                  {activeSection === 'earnings' && (
+                    <section className="space-y-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                        <div className="border rounded-sm p-5 space-y-2">
+                          <p className="text-xs uppercase tracking-wider text-muted-foreground">Sales</p>
+                          <p className="text-2xl font-heading">{stats ? `₹${stats.revenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}</p>
+                        </div>
+                        <div className="border rounded-sm p-5 space-y-2">
+                          <p className="text-xs uppercase tracking-wider text-muted-foreground">Units Sold</p>
+                          <p className="text-2xl font-heading">{stats?.unitsSold ?? '—'}</p>
+                        </div>
+                        <div className="border rounded-sm p-5 space-y-2">
+                          <p className="text-xs uppercase tracking-wider text-muted-foreground">Orders</p>
+                          <p className="text-2xl font-heading">{stats?.orderCount ?? '—'}</p>
+                        </div>
+                        <div className="border rounded-sm p-5 space-y-2">
+                          <p className="text-xs uppercase tracking-wider text-muted-foreground">Pending Orders</p>
+                          <p className="text-2xl font-heading">{stats?.pendingOrderCount ?? '—'}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid lg:grid-cols-2 gap-4">
+                        <div className="border rounded-sm p-5 space-y-4">
+                          <p className="text-xs uppercase tracking-wider text-muted-foreground">Payment Information</p>
+                          <div className="space-y-3 text-sm">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-muted-foreground">Bank</span>
+                              <span className="font-medium text-right">{seller.bank_name || '-'}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-muted-foreground">Account</span>
+                              <span className="font-medium text-right">{seller.bank_account_number || '-'}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-muted-foreground">IFSC</span>
+                              <span className="font-medium text-right">{seller.bank_ifsc || '-'}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-muted-foreground">Tax ID</span>
+                              <span className="font-medium text-right">{seller.tax_id || '-'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="border rounded-sm p-5 space-y-4">
+                          <p className="text-xs uppercase tracking-wider text-muted-foreground">Payout Summary</p>
+                          <div className="space-y-3 text-sm">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-muted-foreground">Recent Orders</span>
+                              <span className="font-medium text-right">{stats?.orderCount ?? '—'}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-muted-foreground">Latest Payout</span>
+                              <span className="font-medium text-right">—</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-muted-foreground">Payout Status</span>
+                              <Badge variant="outline">Ready</Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+                  )}
+                </div>
               ) : (
                 <div className="max-w-lg border rounded-sm p-8">
-                  <div className="mb-4">
-                    <SellerStoreEditDialog
-                      seller={seller}
-                      onSaved={(updatedSlug) => {
-                        if (updatedSlug) {
-                          router.replace(`/seller/dashboard?store=${encodeURIComponent(updatedSlug)}`);
-                        }
-                        queryClient.invalidateQueries({ queryKey: ['my-sellers', seller.user_id] });
-                      }}
-                      triggerLabel="Edit Store Info"
-                      triggerClassName="w-full"
-                    />
-                  </div>
                   {seller.status === 'pending' ? (
                     <>
                       <Clock className="h-12 w-12 text-accent mb-4" />
@@ -483,19 +621,14 @@ function SellerStoreDashboard({ seller, sellers }: { seller: SellerRow; sellers:
   );
 }
 
-function SellerStoreEditDialog({
+function SellerStoreSettingsForm({
   seller,
   onSaved,
-  triggerLabel = 'Edit Store',
-  triggerClassName,
 }: {
   seller: SellerRow;
   onSaved?: (updatedSlug?: string) => void;
-  triggerLabel?: string;
-  triggerClassName?: string;
 }) {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
   const [form, setForm] = useState<SellerStoreFormState>({
     name: seller.name || '',
     slug: seller.slug || '',
@@ -514,7 +647,6 @@ function SellerStoreEditDialog({
   });
 
   useEffect(() => {
-    if (!open) return;
     setForm({
       name: seller.name || '',
       slug: seller.slug || '',
@@ -531,7 +663,7 @@ function SellerStoreEditDialog({
       bank_ifsc: seller.bank_ifsc || '',
       tax_id: seller.tax_id || '',
     });
-  }, [open, seller]);
+  }, [seller]);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -566,7 +698,6 @@ function SellerStoreEditDialog({
       queryClient.invalidateQueries({ queryKey: ['seller-products', seller.id] });
       queryClient.invalidateQueries({ queryKey: ['seller-dashboard-stats', seller.id] });
       toast.success('Store updated');
-      setOpen(false);
       onSaved?.(data?.slug || generateStoreSlug(form.slug.trim() || form.name));
     },
     onError: (error: unknown) => {
@@ -575,118 +706,117 @@ function SellerStoreEditDialog({
   });
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className={triggerClassName}>
-          <Pencil className="h-4 w-4 mr-2" />
-          {triggerLabel}
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Edit Store Information</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 mt-2">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Store Name *</Label>
-              <Input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value, slug: prev.slug || generateStoreSlug(e.target.value) }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Store Slug *</Label>
-              <Input value={form.slug} onChange={e => setForm(prev => ({ ...prev, slug: e.target.value }))} />
-              <p className="text-xs text-muted-foreground">This updates the storefront URL and dashboard store selector. Store name and slug must be unique.</p>
-            </div>
+    <form
+      className="space-y-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        mutation.mutate();
+      }}
+    >
+      <div className="border rounded-sm p-4 space-y-4">
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">Store Information</p>
+        <div className="grid gap-4 md:grid-cols-12">
+          <div className="space-y-2 md:col-span-6">
+            <Label>Store Name *</Label>
+            <Input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value, slug: prev.slug || generateStoreSlug(e.target.value) }))} />
           </div>
-
-          <div className="space-y-2">
-            <Label>Description</Label>
-            <Textarea value={form.description} onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))} rows={3} />
+          <div className="space-y-2 md:col-span-6">
+            <Label>Store Slug *</Label>
+            <Input value={form.slug} onChange={e => setForm(prev => ({ ...prev, slug: e.target.value }))} />
           </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Phone *</Label>
-              <Input value={form.phone} onChange={e => setForm(prev => ({ ...prev, phone: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Logo URL</Label>
-              <Input value={form.logo_url} onChange={e => setForm(prev => ({ ...prev, logo_url: e.target.value }))} />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Street Address *</Label>
-            <Input value={form.address_street} onChange={e => setForm(prev => ({ ...prev, address_street: e.target.value }))} />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>City *</Label>
-              <Input value={form.address_city} onChange={e => setForm(prev => ({ ...prev, address_city: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>State *</Label>
-              <Input value={form.address_state} onChange={e => setForm(prev => ({ ...prev, address_state: e.target.value }))} />
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>ZIP Code *</Label>
-              <Input value={form.address_zip} onChange={e => setForm(prev => ({ ...prev, address_zip: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Country</Label>
-              <Input value={form.address_country} onChange={e => setForm(prev => ({ ...prev, address_country: e.target.value }))} />
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Bank Name *</Label>
-              <Input value={form.bank_name} onChange={e => setForm(prev => ({ ...prev, bank_name: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Account Number *</Label>
-              <Input value={form.bank_account_number} onChange={e => setForm(prev => ({ ...prev, bank_account_number: e.target.value }))} />
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>IFSC Code *</Label>
-              <Input value={form.bank_ifsc} onChange={e => setForm(prev => ({ ...prev, bank_ifsc: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Tax ID / GSTIN *</Label>
-              <Input value={form.tax_id} onChange={e => setForm(prev => ({ ...prev, tax_id: e.target.value }))} />
-            </div>
-          </div>
-
-          <Button
-            className="w-full"
-            onClick={() => mutation.mutate()}
-            disabled={
-              mutation.isPending ||
-              !form.name.trim() ||
-              !form.slug.trim() ||
-              !form.phone.trim() ||
-              !form.address_street.trim() ||
-              !form.address_city.trim() ||
-              !form.address_state.trim() ||
-              !form.address_zip.trim() ||
-              !form.bank_name.trim() ||
-              !form.bank_account_number.trim() ||
-              !form.bank_ifsc.trim() ||
-              !form.tax_id.trim()
-            }
-          >
-            {mutation.isPending ? 'Saving...' : 'Save Store'}
-          </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+        <p className="text-xs text-muted-foreground">This updates the storefront URL and dashboard store selector. Store name and slug must be unique.</p>
+
+        <div className="space-y-2">
+          <Label>Description</Label>
+          <Textarea value={form.description} onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))} rows={3} />
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-12">
+          <div className="space-y-2 md:col-span-6">
+            <Label>Phone *</Label>
+            <Input value={form.phone} onChange={e => setForm(prev => ({ ...prev, phone: e.target.value }))} />
+          </div>
+          <div className="space-y-2 md:col-span-6">
+            <Label>Logo URL</Label>
+            <Input value={form.logo_url} onChange={e => setForm(prev => ({ ...prev, logo_url: e.target.value }))} />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Street Address *</Label>
+          <Input value={form.address_street} onChange={e => setForm(prev => ({ ...prev, address_street: e.target.value }))} />
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-12">
+          <div className="space-y-2 md:col-span-6">
+            <Label>City *</Label>
+            <Input value={form.address_city} onChange={e => setForm(prev => ({ ...prev, address_city: e.target.value }))} />
+          </div>
+          <div className="space-y-2 md:col-span-6">
+            <Label>State *</Label>
+            <Input value={form.address_state} onChange={e => setForm(prev => ({ ...prev, address_state: e.target.value }))} />
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-12">
+          <div className="space-y-2 md:col-span-6">
+            <Label>ZIP Code *</Label>
+            <Input value={form.address_zip} onChange={e => setForm(prev => ({ ...prev, address_zip: e.target.value }))} />
+          </div>
+          <div className="space-y-2 md:col-span-6">
+            <Label>Country</Label>
+            <Input value={form.address_country} onChange={e => setForm(prev => ({ ...prev, address_country: e.target.value }))} />
+          </div>
+        </div>
+      </div>
+
+      <div className="border rounded-sm p-4 space-y-4">
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">Banking Details</p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Bank Name *</Label>
+            <Input value={form.bank_name} onChange={e => setForm(prev => ({ ...prev, bank_name: e.target.value }))} />
+          </div>
+          <div className="space-y-2">
+            <Label>Account Number *</Label>
+            <Input value={form.bank_account_number} onChange={e => setForm(prev => ({ ...prev, bank_account_number: e.target.value }))} />
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>IFSC Code *</Label>
+            <Input value={form.bank_ifsc} onChange={e => setForm(prev => ({ ...prev, bank_ifsc: e.target.value }))} />
+          </div>
+          <div className="space-y-2">
+            <Label>Tax ID / GSTIN *</Label>
+            <Input value={form.tax_id} onChange={e => setForm(prev => ({ ...prev, tax_id: e.target.value }))} />
+          </div>
+        </div>
+      </div>
+
+      <Button
+        type="submit"
+        className="w-full"
+        disabled={
+          mutation.isPending ||
+          !form.name.trim() ||
+          !form.slug.trim() ||
+          !form.phone.trim() ||
+          !form.address_street.trim() ||
+          !form.address_city.trim() ||
+          !form.address_state.trim() ||
+          !form.address_zip.trim() ||
+          !form.bank_name.trim() ||
+          !form.bank_account_number.trim() ||
+          !form.bank_ifsc.trim() ||
+          !form.tax_id.trim()
+        }
+      >
+        {mutation.isPending ? 'Saving...' : 'Save Store'}
+      </Button>
+    </form>
   );
 }
 
@@ -717,15 +847,7 @@ function SellerOverviewDashboard({ sellers }: { sellers: SellerRow[] }) {
           </header>
           <main className="flex-1 p-6 md:p-8 overflow-auto">
             <div className="animate-fade-in">
-              <div className="flex items-center justify-between mb-2">
-                <h1 className="text-2xl font-heading">Store Overview</h1>
-                <Button asChild size="sm">
-                  <Link href="/seller/register">Create Store</Link>
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground mb-6">
-                Combined snapshot across <strong>{sellers.length}</strong> storefront{sellers.length !== 1 ? 's' : ''}.
-              </p>
+         
 
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4 mb-8">
                 {metricCards.map(card => (
@@ -801,6 +923,10 @@ function SellerProductFormDialog({ sellerId, product }: { sellerId: string; prod
   const [open, setOpen] = useState(false);
   const [images, setImages] = useState<ProductImageItem[]>([]);
   const imagesRef = useRef<ProductImageItem[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [draggedImageId, setDraggedImageId] = useState<string | null>(null);
+  const [dragOverImageId, setDragOverImageId] = useState<string | null>(null);
+  const [isUploadTileActive, setIsUploadTileActive] = useState(false);
   const [form, setForm] = useState({
     name: product?.name || '',
     description: product?.description || '',
@@ -848,6 +974,28 @@ function SellerProductFormDialog({ sellerId, product }: { sellerId: string; prod
   }, [open, initialImages]);
 
   useEffect(() => () => revokeProductImageItems(imagesRef.current), []);
+
+  useEffect(() => {
+    if (!open) {
+      setDraggedImageId(null);
+      setDragOverImageId(null);
+      setIsUploadTileActive(false);
+    }
+  }, [open]);
+
+  const moveImage = (fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    setImages(prev => {
+      const fromIndex = prev.findIndex(item => item.id === fromId);
+      const toIndex = prev.findIndex(item => item.id === toId);
+      return reorderProductImageItems(prev, fromIndex, toIndex);
+    });
+  };
+
+  const appendImagesFromFiles = (files: File[]) => {
+    if (files.length === 0) return;
+    syncImages(prev => [...prev, ...createProductImageItemsFromFiles(files)]);
+  };
 
   const { data: categories = [] } = useCategories();
   const { data: tags = [] } = useTags();
@@ -931,64 +1079,86 @@ function SellerProductFormDialog({ sellerId, product }: { sellerId: string; prod
           </div>
           <div className="space-y-2">
             <Label>Product Images</Label>
-            <Input
+            <input
+              ref={fileInputRef}
               type="file"
               accept="image/*"
               multiple
+              className="hidden"
               onChange={e => {
-                const files = Array.from(e.target.files || []);
-                if (files.length > 0) {
-                  syncImages(prev => [...prev, ...createProductImageItemsFromFiles(files)]);
-                }
+                appendImagesFromFiles(Array.from(e.target.files || []));
                 e.currentTarget.value = '';
               }}
             />
-            <p className="text-xs text-muted-foreground">
-              {product
-                ? 'Reorder images with the arrows. The first image becomes the primary image.'
-                : 'Upload one or more images for the product gallery.'}
-            </p>
-            {images.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Gallery Order</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {images.map((image, index) => (
-                    <div key={image.id} className="relative overflow-hidden rounded-sm border bg-secondary">
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={event => {
+                    event.preventDefault();
+                    setIsUploadTileActive(true);
+                  }}
+                  onDragLeave={event => {
+                    setIsUploadTileActive(false);
+                  }}
+                  onDrop={event => {
+                    event.preventDefault();
+                    setIsUploadTileActive(false);
+                    appendImagesFromFiles(Array.from(event.dataTransfer.files || []).filter(file => file.type.startsWith('image/')));
+                  }}
+                  className={cn(
+                    'group relative flex aspect-square h-full w-full flex-col items-center justify-center gap-3 overflow-hidden rounded-sm border border-dashed bg-secondary/40 p-4 text-center transition-all duration-200',
+                    'hover:border-primary/40 hover:bg-secondary/70',
+                    isUploadTileActive && 'border-primary/60 bg-secondary/80 ring-2 ring-primary ring-offset-2 shadow-md scale-[0.99]',
+                  )}
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-sm border bg-background shadow-sm transition-transform group-hover:scale-105">
+                    <Plus className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Upload images</p>
+                    <p className="text-xs text-muted-foreground">Click or drop files</p>
+                  </div>
+                </button>
+                {images.map((image, index) => (
+                    <div
+                      key={image.id}
+                      draggable
+                      onDragStart={() => setDraggedImageId(image.id)}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        if (draggedImageId && draggedImageId !== image.id) {
+                          setDragOverImageId(image.id);
+                        }
+                      }}
+                      onDragLeave={() => setDragOverImageId(current => (current === image.id ? null : current))}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        if (draggedImageId) {
+                          moveImage(draggedImageId, image.id);
+                        }
+                        setDraggedImageId(null);
+                        setDragOverImageId(null);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedImageId(null);
+                        setDragOverImageId(null);
+                      }}
+                      className={cn(
+                        'group relative overflow-hidden rounded-sm border bg-secondary transition-all duration-200',
+                        draggedImageId === image.id && 'scale-[0.98] opacity-60',
+                        dragOverImageId === image.id && 'ring-2 ring-primary ring-offset-2',
+                      )}
+                    >
                       <img src={image.previewUrl} alt={`Product image ${index + 1}`} className="aspect-square h-full w-full object-cover" />
                       {index === 0 && (
                         <div className="absolute left-1 top-1 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider">
                           Primary
                         </div>
                       )}
-                      <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-1">
-                        <button
-                          type="button"
-                          onClick={() => syncImages(prev => {
-                            if (index === 0) return prev;
-                            const next = [...prev];
-                            [next[index - 1], next[index]] = [next[index], next[index - 1]];
-                            return next;
-                          })}
-                          disabled={index === 0}
-                          className="rounded-full bg-background/90 p-1 text-foreground shadow disabled:opacity-40"
-                          aria-label={`Move image ${index + 1} left`}
-                        >
-                          <ChevronLeft className="h-3 w-3" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => syncImages(prev => {
-                            if (index === prev.length - 1) return prev;
-                            const next = [...prev];
-                            [next[index + 1], next[index]] = [next[index], next[index + 1]];
-                            return next;
-                          })}
-                          disabled={index === images.length - 1}
-                          className="rounded-full bg-background/90 p-1 text-foreground shadow disabled:opacity-40"
-                          aria-label={`Move image ${index + 1} right`}
-                        >
-                          <ChevronRight className="h-3 w-3" />
-                        </button>
+                      <div className="absolute left-1 top-1/2 -translate-y-1/2 rounded-full bg-background/90 p-1 text-foreground shadow opacity-0 transition-opacity group-hover:opacity-100">
+                        <GripVertical className="h-3 w-3" />
                       </div>
                       <button
                         type="button"
@@ -1005,10 +1175,9 @@ function SellerProductFormDialog({ sellerId, product }: { sellerId: string; prod
                         <X className="h-3 w-3" />
                       </button>
                     </div>
-                  ))}
-                </div>
+                ))}
               </div>
-            )}
+            </div>
           </div>
           <Button
             onClick={() => mutation.mutate()}

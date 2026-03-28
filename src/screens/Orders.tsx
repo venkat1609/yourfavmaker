@@ -16,25 +16,38 @@ const statusColors: Record<string, string> = {
   cancelled: 'bg-destructive/20 text-destructive',
 };
 
+type OrderItemRow = {
+  id: string;
+};
+
+type OrderRow = {
+  id: string;
+  created_at: string;
+  status: string;
+  total: number;
+  order_items?: OrderItemRow[] | null;
+};
+
 export default function Orders() {
   const { user } = useAuth();
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['orders', user?.id],
     queryFn: async () => {
+      if (!user) return [] as OrderRow[];
       const { data, error } = await supabase
         .from('orders')
         .select('*, order_items(*)')
-        .eq('user_id', user!.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return (data || []) as OrderRow[];
     },
     enabled: !!user,
   });
 
-  const activeOrders = orders.filter(o => ['pending', 'processing', 'shipped'].includes(o.status));
-  const pastOrders = orders.filter(o => ['delivered', 'cancelled'].includes(o.status));
+  const activeOrders = (orders as OrderRow[]).filter(o => ['pending', 'processing', 'shipped'].includes(o.status));
+  const pastOrders = (orders as OrderRow[]).filter(o => ['delivered', 'cancelled'].includes(o.status));
 
   if (isLoading) {
     return (
@@ -47,7 +60,7 @@ export default function Orders() {
 
   const ORDERS_PER_PAGE = 10;
 
-  const OrderList = ({ orders, title }: { orders: typeof activeOrders; title: string }) => {
+  const OrderList = ({ orders, title }: { orders: OrderRow[]; title: string }) => {
     const [page, setPage] = useState(1);
     const { totalPages, getPageItems } = usePagination(orders, ORDERS_PER_PAGE);
     const pageOrders = getPageItems(page);
@@ -69,7 +82,7 @@ export default function Orders() {
                 </div>
               </div>
               <div className="text-sm text-muted-foreground">
-                {(order as any).order_items?.length || 0} item{(order as any).order_items?.length !== 1 ? 's' : ''}
+                {order.order_items?.length || 0} item{order.order_items?.length !== 1 ? 's' : ''}
               </div>
             </div>
           ))}

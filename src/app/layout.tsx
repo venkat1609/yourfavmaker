@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Header from '@/components/Header';
+import AppFooter from '@/components/AppFooter';
 import { Providers } from '@/components/providers';
 import '@/index.css';
 
@@ -7,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'YourFavMaker',
-  description: 'Handcrafted commerce built with care.',
+  description: 'Curated commerce for modern brands.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -18,9 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="min-h-screen flex flex-col">
             <Header />
             <main className="flex-1">{children}</main>
-            <footer className="border-t py-8 text-center text-xs text-muted-foreground">
-              © {new Date().getFullYear()} YourFavMaker. All rights reserved.
-            </footer>
+            <AppFooter />
           </div>
         </Providers>
       </body>

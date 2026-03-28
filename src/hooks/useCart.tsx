@@ -27,6 +27,22 @@ interface CartItem {
   } | null;
 }
 
+type CartRow = {
+  id: string;
+  product_id: string;
+  variant_id: string | null;
+  quantity: number;
+  products: CartItem['product'];
+};
+
+type ProductVariantRow = {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  options: Record<string, string>;
+};
+
 interface CartContextType {
   items: CartItem[];
   loading: boolean;
@@ -55,19 +71,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
 
       // Fetch variant data for items with variant_id
-      const variantIds = (data || []).filter(i => i.variant_id).map(i => i.variant_id!);
-      let variantMap = new Map();
+      const variantIds = (data || []).flatMap(i => (i.variant_id ? [i.variant_id] : []));
+      const variantMap = new Map<string, ProductVariantRow>();
       if (variantIds.length > 0) {
         const { data: variantsData } = await supabase
           .from('product_variants')
           .select('id, name, price, stock, options')
           .in('id', variantIds);
         if (variantsData) {
-          variantsData.forEach(v => variantMap.set(v.id, v));
+          variantsData.forEach(v => variantMap.set(v.id, v as ProductVariantRow));
         }
       }
 
-      return (data || []).map((item: any) => ({
+      return ((data || []) as CartRow[]).map((item) => ({
         ...item,
         product: item.products,
         variant: item.variant_id ? variantMap.get(item.variant_id) || null : null,
@@ -97,7 +113,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           .eq('id', existing.id);
         if (error) throw error;
       } else {
-        const insertData: any = { user_id: user.id, product_id: productId, quantity };
+        const insertData: { user_id: string; product_id: string; quantity: number; variant_id?: string } = { user_id: user.id, product_id: productId, quantity };
         if (variantId) insertData.variant_id = variantId;
         const { error } = await supabase.from('cart_items').insert(insertData);
         if (error) throw error;

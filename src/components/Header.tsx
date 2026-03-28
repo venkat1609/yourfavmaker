@@ -1,6 +1,7 @@
 "use client";
 
 import Link from 'next/link';
+import type { Route } from 'next';
 import { ShoppingBag, User, Menu, X, LogOut, Shield, MapPin, Package, Pencil, ChevronRight, Store, Search } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCart } from '@/hooks/useCart';
@@ -162,7 +163,7 @@ function ProfilePopover() {
                 <>
                   <p className="text-xs text-muted-foreground">No primary address saved</p>
                   <button
-                    onClick={() => { setOpen(false); router.push('/profile/addresses'); }}
+                    onClick={() => { setOpen(false); router.push('/profile/addresses' as Route); }}
                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mt-2 transition-colors"
                   >
                     Manage addresses <ChevronRight className="h-3 w-3" />
@@ -184,7 +185,7 @@ function ProfilePopover() {
                   </div>
                 </div>
                 <button
-                  onClick={() => { setOpen(false); router.push('/profile/addresses'); }}
+                  onClick={() => { setOpen(false); router.push('/profile/addresses' as Route); }}
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mt-2 transition-colors"
                 >
                   Manage addresses <ChevronRight className="h-3 w-3" />
@@ -206,7 +207,7 @@ function ProfilePopover() {
           </button>
           {!seller && (
             <button
-              onClick={() => { setOpen(false); router.push('/seller/register'); }}
+              onClick={() => { setOpen(false); router.push('/seller' as Route); }}
               className="flex items-center gap-2 w-full px-2 py-2 text-sm rounded-sm hover:bg-secondary transition-colors"
             >
               <Store className="h-4 w-4 text-muted-foreground" /> Become a Seller
