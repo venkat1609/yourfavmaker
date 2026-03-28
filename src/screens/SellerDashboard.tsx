@@ -9,8 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
@@ -25,6 +25,8 @@ import {
   X,
   MessageSquare,
   GripVertical,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
 import { useCategories, useTags } from '@/hooks/useAdminData';
@@ -33,13 +35,15 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { SellerSidebar } from '@/components/SellerSidebar';
+import { InventoryManager } from '@/components/InventoryManager';
+import { SellerCollectionsManager, type SellerCollectionsManagerHandle } from '@/components/SellerCollectionsManager';
 import type { ProductImageItem } from '@/lib/productImages';
 import { createProductImageItemsFromFiles, reorderProductImageItems, revokeProductImageItems, resolveProductImageUrls } from '@/lib/productImages';
 import { cn } from '@/lib/utils';
 
 type SellerRow = Database['public']['Tables']['sellers']['Row'];
 type ProductRow = Database['public']['Tables']['products']['Row'];
-type SellerSection = 'overview' | 'products' | 'orders' | 'inquiries' | 'settings' | 'earnings';
+type SellerSection = 'overview' | 'inventory' | 'collections' | 'products' | 'orders' | 'inquiries' | 'settings' | 'earnings' | 'payments';
 
 type SellerStoreStats = {
   productCount: number;
@@ -58,6 +62,16 @@ type SellerStoreStats = {
   }>;
 };
 
+type SellerPaymentHistoryItem = {
+  id: string;
+  created_at: string;
+  total: number;
+  status: string;
+  razorpay_payment_id: string | null;
+  product_count: number;
+  item_count: number;
+};
+
 type SellerStoreFormState = {
   name: string;
   slug: string;
@@ -69,6 +83,9 @@ type SellerStoreFormState = {
   address_state: string;
   address_zip: string;
   address_country: string;
+};
+
+type SellerPaymentsFormState = {
   bank_name: string;
   bank_account_number: string;
   bank_ifsc: string;
@@ -181,6 +198,59 @@ async function fetchSellerDashboardStats(sellerIds: string[]): Promise<SellerSto
   };
 }
 
+async function fetchSellerPaymentHistory(sellerId: string): Promise<SellerPaymentHistoryItem[]> {
+  const { data: storeProducts, error: productsError } = await supabase
+    .from('products')
+    .select('id')
+    .eq('seller_id', sellerId);
+
+  if (productsError) throw productsError;
+
+  const productIds = (storeProducts || []).map(product => product.id);
+  if (productIds.length === 0) return [];
+
+  const { data: orderItems, error: orderItemsError } = await supabase
+    .from('order_items')
+    .select('order_id, quantity, product_id')
+    .in('product_id', productIds);
+
+  if (orderItemsError) throw orderItemsError;
+
+  const orderIds = [...new Set((orderItems || []).map(item => item.order_id))];
+  if (orderIds.length === 0) return [];
+
+  const { data: orders, error: ordersError } = await supabase
+    .from('orders')
+    .select('id, status, total, created_at, razorpay_payment_id')
+    .in('id', orderIds)
+    .order('created_at', { ascending: false });
+
+  if (ordersError) throw ordersError;
+
+  const summaryMap = new Map<string, SellerPaymentHistoryItem>();
+
+  (orderItems || []).forEach(item => {
+    const order = (orders || []).find(entry => entry.id === item.order_id);
+    if (!order) return;
+
+    const existing = summaryMap.get(order.id) || {
+      id: order.id,
+      created_at: order.created_at,
+      total: Number(order.total),
+      status: order.status,
+      razorpay_payment_id: order.razorpay_payment_id,
+      product_count: 0,
+      item_count: 0,
+    };
+
+    existing.item_count += Number(item.quantity);
+    existing.product_count += 1;
+    summaryMap.set(order.id, existing);
+  });
+
+  return Array.from(summaryMap.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 8);
+}
+
 export default function SellerDashboard() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
@@ -229,8 +299,12 @@ export default function SellerDashboard() {
 function SellerStoreDashboard({ seller, sellers, activeSection }: { seller: SellerRow; sellers: SellerRow[]; activeSection: SellerSection }) {
   const queryClient = useQueryClient();
   const router = useRouter();
+  const collectionsManagerRef = useRef<SellerCollectionsManagerHandle>(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [isInsideCollectionView, setIsInsideCollectionView] = useState(false);
+  const [paymentHistoryOpen, setPaymentHistoryOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<ProductRow | null>(null);
   const ITEMS_PER_PAGE = 10;
 
   const isApproved = seller.status === 'approved';
@@ -302,6 +376,14 @@ function SellerStoreDashboard({ seller, sellers, activeSection }: { seller: Sell
       title: 'Store Dashboard',
       description: 'Combined snapshot of your store performance, operations, and activity.',
     },
+    inventory: {
+      title: 'Inventory',
+      description: 'Manage stock for products and variants separately from product details.',
+    },
+    collections: {
+      title: 'Collections',
+      description: 'Organize products into internal collections used only for store management.',
+    },
     products: {
       title: 'Products',
       description: 'Create, search, reorder, and update products for this storefront.',
@@ -319,8 +401,12 @@ function SellerStoreDashboard({ seller, sellers, activeSection }: { seller: Sell
       description: 'Update the store identity, contact details, and address details.',
     },
     earnings: {
-      title: 'Earnings & Payments',
-      description: 'Review sales, payouts, and payment information for this storefront.',
+      title: 'Earnings',
+      description: 'Review sales, payouts, and order performance for this storefront.',
+    },
+    payments: {
+      title: 'Payments',
+      description: 'Review bank and payout details for this storefront.',
     },
   } as const;
 
@@ -361,6 +447,14 @@ function SellerStoreDashboard({ seller, sellers, activeSection }: { seller: Sell
                     <div className="flex min-w-[11rem] justify-end">
                       {activeSection === 'products' ? (
                         <SellerProductFormDialog sellerId={seller.id} />
+                      ) : activeSection === 'collections' && !isInsideCollectionView ? (
+                        <Button size="sm" onClick={() => collectionsManagerRef.current?.openCreateCollection()}>
+                          <Plus className="h-4 w-4 mr-1" /> New Collection
+                        </Button>
+                      ) : activeSection === 'payments' ? (
+                        <Button size="sm" variant="outline" onClick={() => setPaymentHistoryOpen(true)}>
+                          View History
+                        </Button>
                       ) : (
                         <div className="h-9 w-[11rem]" aria-hidden="true" />
                       )}
@@ -424,6 +518,22 @@ function SellerStoreDashboard({ seller, sellers, activeSection }: { seller: Sell
                     </section>
                   )}
 
+                  {activeSection === 'inventory' && (
+                    <section className="space-y-6">
+                      <InventoryManager scope="seller" sellerId={seller.id} />
+                    </section>
+                  )}
+
+                  {activeSection === 'collections' && (
+                    <section className="space-y-6">
+                      <SellerCollectionsManager
+                        sellerId={seller.id}
+                        ref={collectionsManagerRef}
+                        onSelectionChange={setIsInsideCollectionView}
+                      />
+                    </section>
+                  )}
+
                   {activeSection === 'products' && (
                     <section className="space-y-6">
                       <div className="flex items-center gap-3">
@@ -443,47 +553,44 @@ function SellerStoreDashboard({ seller, sellers, activeSection }: { seller: Sell
                         </div>
                       ) : (
                         <>
-                          <div className="border rounded-sm overflow-hidden">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="border-b bg-muted/50">
-                                  <th className="text-left p-3 font-medium">Product</th>
-                                  <th className="text-left p-3 font-medium hidden md:table-cell">Category</th>
-                                  <th className="text-right p-3 font-medium">Price</th>
-                                  <th className="text-right p-3 font-medium hidden md:table-cell">Stock</th>
-                                  <th className="text-center p-3 font-medium">Active</th>
-                                  <th className="p-3"></th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {pageProducts.map(p => (
-                                  <tr key={p.id} className="border-b last:border-0">
-                                    <td className="p-3">
-                                      <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 bg-secondary rounded-sm overflow-hidden flex-shrink-0">
-                                          {p.image_url && <img src={p.image_url} alt="" className="h-full w-full object-cover" />}
-                                        </div>
-                                        <span className="font-medium">{p.name}</span>
+                          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+                            {pageProducts.map(p => (
+                              <div key={p.id} className="border rounded-sm overflow-hidden bg-background">
+                                <div className="relative aspect-[5/4] bg-secondary overflow-hidden">
+                                  {p.image_url ? <img src={p.image_url} alt="" className="h-full w-full object-cover" /> : null}
+                                  <div className="absolute inset-x-0 bottom-0 p-3">
+                                    <div className="flex items-end justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <p className="text-[11px] text-black/60 truncate">{p.category || 'Uncategorized'}</p>
+                                        <p className="font-medium text-black truncate">{p.name}</p>
                                       </div>
-                                    </td>
-                                    <td className="p-3 hidden md:table-cell text-muted-foreground">{p.category || '-'}</td>
-                                    <td className="p-3 text-right">₹{Number(p.price).toFixed(2)}</td>
-                                    <td className="p-3 text-right hidden md:table-cell">{p.stock}</td>
-                                    <td className="p-3 text-center">
-                                      <Switch checked={p.is_active} onCheckedChange={v => toggleActive.mutate({ id: p.id, is_active: v })} />
-                                    </td>
-                                    <td className="p-3">
-                                      <div className="flex items-center justify-end gap-1">
-                                        <SellerProductFormDialog sellerId={seller.id} product={p} />
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(p.id)}>
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                      <p className="text-sm font-medium whitespace-nowrap text-black">₹{Number(p.price).toFixed(2)}</p>
+                                    </div>
+                                  </div>
+                                  <div className="absolute right-2 top-2 flex items-center gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className={cn('h-6 w-6 bg-transparent hover:bg-transparent', p.is_active ? 'text-success' : 'text-muted-foreground')}
+                                      onClick={() => toggleActive.mutate({ id: p.id, is_active: !p.is_active })}
+                                      title={p.is_active ? 'Mark inactive' : 'Mark active'}
+                                    >
+                                      {p.is_active ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                                    </Button>
+                                    <SellerProductFormDialog sellerId={seller.id} product={p} />
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 bg-transparent hover:bg-transparent text-destructive"
+                                      onClick={() => setProductToDelete(p)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                           <PaginationControls currentPage={page} totalPages={totalPages} onPageChange={setPage} className="mt-6" />
                           </>
@@ -550,49 +657,68 @@ function SellerStoreDashboard({ seller, sellers, activeSection }: { seller: Sell
                         </div>
                       </div>
 
-                      <div className="grid lg:grid-cols-2 gap-4">
-                        <div className="border rounded-sm p-5 space-y-4">
-                          <p className="text-xs uppercase tracking-wider text-muted-foreground">Payment Information</p>
-                          <div className="space-y-3 text-sm">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-muted-foreground">Bank</span>
-                              <span className="font-medium text-right">{seller.bank_name || '-'}</span>
-                            </div>
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-muted-foreground">Account</span>
-                              <span className="font-medium text-right">{seller.bank_account_number || '-'}</span>
-                            </div>
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-muted-foreground">IFSC</span>
-                              <span className="font-medium text-right">{seller.bank_ifsc || '-'}</span>
-                            </div>
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-muted-foreground">Tax ID</span>
-                              <span className="font-medium text-right">{seller.tax_id || '-'}</span>
-                            </div>
+                      <div className="border rounded-sm p-5 space-y-4">
+                        <p className="text-xs uppercase tracking-wider text-muted-foreground">Payout Summary</p>
+                        <div className="space-y-3 text-sm">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-muted-foreground">Recent Orders</span>
+                            <span className="font-medium text-right">{stats?.orderCount ?? '—'}</span>
                           </div>
-                        </div>
-
-                        <div className="border rounded-sm p-5 space-y-4">
-                          <p className="text-xs uppercase tracking-wider text-muted-foreground">Payout Summary</p>
-                          <div className="space-y-3 text-sm">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-muted-foreground">Recent Orders</span>
-                              <span className="font-medium text-right">{stats?.orderCount ?? '—'}</span>
-                            </div>
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-muted-foreground">Latest Payout</span>
-                              <span className="font-medium text-right">—</span>
-                            </div>
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-muted-foreground">Payout Status</span>
-                              <Badge variant="outline">Ready</Badge>
-                            </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-muted-foreground">Latest Payout</span>
+                            <span className="font-medium text-right">—</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-muted-foreground">Payout Status</span>
+                            <Badge variant="outline">Ready</Badge>
                           </div>
                         </div>
                       </div>
                     </section>
                   )}
+
+                  {activeSection === 'payments' && (
+                    <section className="space-y-6">
+                      <SellerPaymentsForm seller={seller} />
+                    </section>
+                  )}
+
+                  <Dialog open={paymentHistoryOpen} onOpenChange={setPaymentHistoryOpen}>
+                    <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Payment History</DialogTitle>
+                      </DialogHeader>
+                      <SellerPaymentHistory sellerId={seller.id} />
+                    </DialogContent>
+                  </Dialog>
+
+                  <AlertDialog
+                    open={Boolean(productToDelete)}
+                    onOpenChange={(open) => {
+                      if (!open) setProductToDelete(null);
+                    }}
+                  >
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete product?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete "{productToDelete?.name}" and cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setProductToDelete(null)}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => {
+                            if (!productToDelete) return;
+                            deleteMutation.mutate(productToDelete.id);
+                            setProductToDelete(null);
+                          }}
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               ) : (
                 <div className="max-w-lg border rounded-sm p-8">
@@ -640,10 +766,6 @@ function SellerStoreSettingsForm({
     address_state: seller.address_state || '',
     address_zip: seller.address_zip || '',
     address_country: seller.address_country || 'IN',
-    bank_name: seller.bank_name || '',
-    bank_account_number: seller.bank_account_number || '',
-    bank_ifsc: seller.bank_ifsc || '',
-    tax_id: seller.tax_id || '',
   });
 
   useEffect(() => {
@@ -658,10 +780,6 @@ function SellerStoreSettingsForm({
       address_state: seller.address_state || '',
       address_zip: seller.address_zip || '',
       address_country: seller.address_country || 'IN',
-      bank_name: seller.bank_name || '',
-      bank_account_number: seller.bank_account_number || '',
-      bank_ifsc: seller.bank_ifsc || '',
-      tax_id: seller.tax_id || '',
     });
   }, [seller]);
 
@@ -681,10 +799,6 @@ function SellerStoreSettingsForm({
           address_state: form.address_state.trim() || null,
           address_zip: form.address_zip.trim() || null,
           address_country: form.address_country.trim() || null,
-          bank_name: form.bank_name.trim() || null,
-          bank_account_number: form.bank_account_number.trim() || null,
-          bank_ifsc: form.bank_ifsc.trim() || null,
-          tax_id: form.tax_id.trim() || null,
         })
         .eq('id', seller.id)
         .select('slug')
@@ -771,31 +885,6 @@ function SellerStoreSettingsForm({
         </div>
       </div>
 
-      <div className="border rounded-sm p-4 space-y-4">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">Banking Details</p>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Bank Name *</Label>
-            <Input value={form.bank_name} onChange={e => setForm(prev => ({ ...prev, bank_name: e.target.value }))} />
-          </div>
-          <div className="space-y-2">
-            <Label>Account Number *</Label>
-            <Input value={form.bank_account_number} onChange={e => setForm(prev => ({ ...prev, bank_account_number: e.target.value }))} />
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>IFSC Code *</Label>
-            <Input value={form.bank_ifsc} onChange={e => setForm(prev => ({ ...prev, bank_ifsc: e.target.value }))} />
-          </div>
-          <div className="space-y-2">
-            <Label>Tax ID / GSTIN *</Label>
-            <Input value={form.tax_id} onChange={e => setForm(prev => ({ ...prev, tax_id: e.target.value }))} />
-          </div>
-        </div>
-      </div>
-
       <Button
         type="submit"
         className="w-full"
@@ -807,16 +896,150 @@ function SellerStoreSettingsForm({
           !form.address_street.trim() ||
           !form.address_city.trim() ||
           !form.address_state.trim() ||
-          !form.address_zip.trim() ||
+          !form.address_zip.trim()
+        }
+      >
+        {mutation.isPending ? 'Saving...' : 'Save Store'}
+      </Button>
+    </form>
+  );
+}
+
+function SellerPaymentsForm({ seller }: { seller: SellerRow }) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState<SellerPaymentsFormState>({
+    bank_name: seller.bank_name || '',
+    bank_account_number: seller.bank_account_number || '',
+    bank_ifsc: seller.bank_ifsc || '',
+    tax_id: seller.tax_id || '',
+  });
+
+  useEffect(() => {
+    setForm({
+      bank_name: seller.bank_name || '',
+      bank_account_number: seller.bank_account_number || '',
+      bank_ifsc: seller.bank_ifsc || '',
+      tax_id: seller.tax_id || '',
+    });
+  }, [seller]);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('sellers')
+        .update({
+          bank_name: form.bank_name.trim() || null,
+          bank_account_number: form.bank_account_number.trim() || null,
+          bank_ifsc: form.bank_ifsc.trim() || null,
+          tax_id: form.tax_id.trim() || null,
+        })
+        .eq('id', seller.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-sellers', seller.user_id] });
+      queryClient.invalidateQueries({ queryKey: ['seller-dashboard-stats', seller.id] });
+      toast.success('Payment details updated');
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : 'Unable to update payment details');
+    },
+  });
+
+  return (
+    <form
+      className="space-y-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        mutation.mutate();
+      }}
+    >
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Bank Name *</Label>
+          <Input value={form.bank_name} onChange={e => setForm(prev => ({ ...prev, bank_name: e.target.value }))} />
+        </div>
+        <div className="space-y-2">
+          <Label>Account Number *</Label>
+          <Input value={form.bank_account_number} onChange={e => setForm(prev => ({ ...prev, bank_account_number: e.target.value }))} />
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label>IFSC Code *</Label>
+          <Input value={form.bank_ifsc} onChange={e => setForm(prev => ({ ...prev, bank_ifsc: e.target.value }))} />
+        </div>
+        <div className="space-y-2">
+          <Label>Tax ID / GSTIN *</Label>
+          <Input value={form.tax_id} onChange={e => setForm(prev => ({ ...prev, tax_id: e.target.value }))} />
+        </div>
+      </div>
+
+      <Button
+        type="submit"
+        className="w-full"
+        disabled={
+          mutation.isPending ||
           !form.bank_name.trim() ||
           !form.bank_account_number.trim() ||
           !form.bank_ifsc.trim() ||
           !form.tax_id.trim()
         }
       >
-        {mutation.isPending ? 'Saving...' : 'Save Store'}
+        {mutation.isPending ? 'Saving...' : 'Save Payment Details'}
       </Button>
     </form>
+  );
+}
+
+function SellerPaymentHistory({ sellerId }: { sellerId: string }) {
+  const { data: paymentHistory = [], isLoading: historyLoading } = useQuery({
+    queryKey: ['seller-payment-history', sellerId],
+    queryFn: () => fetchSellerPaymentHistory(sellerId),
+  });
+
+  return (
+    <div className="space-y-4">
+      {historyLoading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="h-12 rounded-sm bg-secondary animate-pulse" />
+          ))}
+        </div>
+      ) : paymentHistory.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No payment history yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {paymentHistory.map((entry) => (
+            <div key={entry.id} className="grid gap-3 rounded-sm border px-3 py-2 text-sm md:grid-cols-[1.2fr_0.9fr_0.8fr_0.8fr_1fr] md:items-center">
+              <div className="min-w-0">
+                <p className="font-medium truncate">Order #{entry.id.slice(0, 8)}</p>
+                <p className="text-xs text-muted-foreground">{new Date(entry.created_at).toLocaleDateString()}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Amount</p>
+                <p className="font-medium">₹{entry.total.toFixed(2)}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Items</p>
+                <p className="font-medium">{entry.item_count}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Payment ID</p>
+                <p className="font-mono text-xs text-muted-foreground truncate">{entry.razorpay_payment_id || 'Pending'}</p>
+              </div>
+              <div className="min-w-0 md:text-right">
+                <Badge variant="outline" className="capitalize">
+                  {entry.status}
+                </Badge>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -933,8 +1156,8 @@ function SellerProductFormDialog({ sellerId, product }: { sellerId: string; prod
     price: product?.price?.toString() || '',
     compare_at_price: product?.compare_at_price?.toString() || '',
     category: product?.category || '',
+    collection_id: product?.collection_id || '',
     tags: (product?.tags as string[]) || [],
-    stock: product?.stock?.toString() || '0',
     is_active: product?.is_active ?? true,
   });
   const initialProductImageUrls = useMemo(() => {
@@ -999,6 +1222,14 @@ function SellerProductFormDialog({ sellerId, product }: { sellerId: string; prod
 
   const { data: categories = [] } = useCategories();
   const { data: tags = [] } = useTags();
+  const { data: collections = [] } = useQuery({
+    queryKey: ['seller-collections', sellerId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('collections').select('id, name, slug').eq('seller_id', sellerId).order('name');
+      if (error) throw error;
+      return data as Array<{ id: string; name: string; slug: string }>;
+    },
+  });
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -1012,8 +1243,8 @@ function SellerProductFormDialog({ sellerId, product }: { sellerId: string; prod
         price: parseFloat(form.price),
         compare_at_price: form.compare_at_price ? parseFloat(form.compare_at_price) : null,
         category: form.category || null,
+        collection_id: form.collection_id || null,
         tags: form.tags,
-        stock: parseInt(form.stock),
         image_url: imageUrls[0] || null,
         image_urls: imageUrls.length > 0 ? imageUrls : null,
         is_active: form.is_active,
@@ -1056,15 +1287,27 @@ function SellerProductFormDialog({ sellerId, product }: { sellerId: string; prod
             <div className="space-y-2"><Label>Price *</Label><Input type="number" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} /></div>
             <div className="space-y-2"><Label>Compare At</Label><Input type="number" step="0.01" value={form.compare_at_price} onChange={e => setForm({ ...form, compare_at_price: e.target.value })} /></div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>{categories.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2"><Label>Stock</Label><Input type="number" value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} /></div>
+          <div className="space-y-2">
+            <Label>Category</Label>
+            <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
+              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectContent>{categories.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Collection</Label>
+            <Select value={form.collection_id || 'none'} onValueChange={v => setForm({ ...form, collection_id: v === 'none' ? '' : v })}>
+              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No collection</SelectItem>
+                {collections.map(collection => (
+                  <SelectItem key={collection.id} value={collection.id}>
+                    {collection.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Internal only. Used for store organization.</p>
           </div>
           <div className="space-y-2">
             <Label>Tags</Label>

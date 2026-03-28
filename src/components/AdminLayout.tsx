@@ -16,9 +16,10 @@ export default function AdminLayout({ children }: { children?: React.ReactNode }
       case '/admin':
         return 'Dashboard';
       case '/admin/products':
+      case '/admin/inventory':
       case '/admin/categories':
       case '/admin/tags':
-        return 'Catalog';
+        return pathname === '/admin/inventory' ? 'Inventory' : 'Catalog';
       case '/admin/orders':
         return 'Sales';
       case '/admin/customers':

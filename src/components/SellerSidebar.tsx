@@ -1,4 +1,4 @@
-import { LayoutDashboard, ArrowLeft, Store, Plus, Package, ShoppingCart, MessageSquare, Settings, ChevronDown, Landmark } from 'lucide-react';
+import { LayoutDashboard, ArrowLeft, Store, Plus, Package, ShoppingCart, MessageSquare, Settings, ChevronDown, Landmark, Boxes, FolderOpen, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
@@ -59,11 +59,14 @@ export function SellerSidebar({
   }, [activeSellerSlug]);
 
   const sellerSections = [
-    { title: 'Products', section: 'products', icon: Package },
     { title: 'Orders', section: 'orders', icon: ShoppingCart },
+    { title: 'Products', section: 'products', icon: Package },
+    { title: 'Collections', section: 'collections', icon: FolderOpen },
+    { title: 'Inventory', section: 'inventory', icon: Boxes },
+    { title: 'Earnings', section: 'earnings', icon: TrendingUp },
+    { title: 'Payments', section: 'payments', icon: Landmark },
     { title: 'Customer Inquiry', section: 'inquiries', icon: MessageSquare },
     { title: 'Settings', section: 'settings', icon: Settings },
-    { title: 'Earnings & Payments', section: 'earnings', icon: Landmark },
   ] as const;
 
   return (

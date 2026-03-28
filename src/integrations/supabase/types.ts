@@ -301,6 +301,7 @@ export type Database = {
           compare_at_price: number | null
           created_at: string
           description: string | null
+          collection_id: string | null
           id: string
           image_url: string | null
           image_urls: string[] | null
@@ -317,6 +318,7 @@ export type Database = {
           compare_at_price?: number | null
           created_at?: string
           description?: string | null
+          collection_id?: string | null
           id?: string
           image_url?: string | null
           image_urls?: string[] | null
@@ -333,6 +335,7 @@ export type Database = {
           compare_at_price?: number | null
           created_at?: string
           description?: string | null
+          collection_id?: string | null
           id?: string
           image_url?: string | null
           image_urls?: string[] | null
@@ -346,7 +349,52 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "products_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "products_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "sellers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collections: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          seller_id: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          seller_id: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          seller_id?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collections_seller_id_fkey"
             columns: ["seller_id"]
             isOneToOne: false
             referencedRelation: "sellers"

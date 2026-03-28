@@ -115,7 +115,7 @@ export default function Products() {
         <>
           <div className="border rounded-sm overflow-hidden">
             <table className="w-full text-sm">
-              <thead><tr className="border-b bg-muted/50"><th className="text-left p-3 font-medium">Product</th><th className="text-left p-3 font-medium hidden md:table-cell">Category</th><th className="text-left p-3 font-medium hidden lg:table-cell">Tags</th><th className="text-right p-3 font-medium">Price</th><th className="text-right p-3 font-medium hidden md:table-cell">Stock</th><th className="text-center p-3 font-medium">Active</th><th className="p-3"></th></tr></thead>
+              <thead><tr className="border-b bg-muted/50"><th className="text-left p-3 font-medium">Product</th><th className="text-left p-3 font-medium hidden md:table-cell">Category</th><th className="text-left p-3 font-medium hidden lg:table-cell">Tags</th><th className="text-right p-3 font-medium">Price</th><th className="text-center p-3 font-medium">Active</th><th className="p-3"></th></tr></thead>
               <tbody>
                 {pageProducts.map(p => (
                   <tr key={p.id} className="border-b last:border-0">
@@ -136,7 +136,6 @@ export default function Products() {
                       </div>
                     </td>
                     <td className="p-3 text-right">₹{Number(p.price).toFixed(2)}</td>
-                    <td className="p-3 text-right hidden md:table-cell">{p.stock}</td>
                     <td className="p-3 text-center"><Switch checked={p.is_active} onCheckedChange={v => toggleActive.mutate({ id: p.id, is_active: v })} /></td>
                     <td className="p-3"><ProductFormDialog product={p} /></td>
                   </tr>
@@ -154,7 +153,7 @@ export default function Products() {
 // ==================== Product Form Dialog ====================
 
 interface AttributeRow { id?: string; name: string; values: string[]; display_order: number; _newValue?: string; }
-interface VariantRow { id?: string; name: string; sku: string; price: string; compare_at_price: string; stock: string; options: Record<string, string>; is_active: boolean; }
+interface VariantRow { id?: string; name: string; sku: string; price: string; compare_at_price: string; options: Record<string, string>; is_active: boolean; }
 
 function ProductFormDialog({ product }: { product?: ProductRow }) {
   const queryClient = useQueryClient();
@@ -163,6 +162,7 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
   const [images, setImages] = useState<ProductImageItem[]>([]);
   const imagesRef = useRef<ProductImageItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const previousSellerIdRef = useRef<string>(product?.seller_id || '');
   const [draggedImageId, setDraggedImageId] = useState<string | null>(null);
   const [dragOverImageId, setDragOverImageId] = useState<string | null>(null);
   const [isUploadTileActive, setIsUploadTileActive] = useState(false);
@@ -170,7 +170,7 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
     name: product?.name || '', description: product?.description || '',
     price: product?.price?.toString() || '', compare_at_price: product?.compare_at_price?.toString() || '',
     category: product?.category || '', tags: (product?.tags as string[]) || [],
-    stock: product?.stock?.toString() || '0',
+    collection_id: product?.collection_id || '',
     is_active: product?.is_active ?? true, seller_id: product?.seller_id || '',
   });
   const initialProductImageUrls = useMemo(() => {
@@ -217,7 +217,13 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
   });
 
   useEffect(() => { if (existingAttrs) setAttributes(existingAttrs.map(a => ({ id: a.id, name: a.name, values: a.values || [], display_order: a.display_order, _newValue: '' }))); }, [existingAttrs]);
-  useEffect(() => { if (existingVariants) setVariants(existingVariants.map(v => ({ id: v.id, name: v.name, sku: v.sku || '', price: v.price?.toString() || '', compare_at_price: v.compare_at_price?.toString() || '', stock: v.stock?.toString() || '0', options: (v.options as Record<string, string>) || {}, is_active: v.is_active }))); }, [existingVariants]);
+  useEffect(() => { if (existingVariants) setVariants(existingVariants.map(v => ({ id: v.id, name: v.name, sku: v.sku || '', price: v.price?.toString() || '', compare_at_price: v.compare_at_price?.toString() || '', options: (v.options as Record<string, string>) || {}, is_active: v.is_active }))); }, [existingVariants]);
+  useEffect(() => {
+    if (previousSellerIdRef.current && previousSellerIdRef.current !== form.seller_id) {
+      setForm(prev => ({ ...prev, collection_id: '' }));
+    }
+    previousSellerIdRef.current = form.seller_id;
+  }, [form.seller_id]);
   useEffect(() => {
     imagesRef.current = images;
   }, [images]);
@@ -254,13 +260,29 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
     setImages(prev => [...prev, ...createProductImageItemsFromFiles(files)]);
   };
 
+  const { data: collections = [] } = useQuery({
+    queryKey: ['seller-collections', form.seller_id || product?.seller_id || 'none'],
+    queryFn: async () => {
+      const sellerId = form.seller_id || product?.seller_id;
+      if (!sellerId) return [];
+      const { data, error } = await supabase
+        .from('collections')
+        .select('id, name, slug')
+        .eq('seller_id', sellerId)
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!(form.seller_id || product?.seller_id),
+  });
+
   const addAttribute = () => setAttributes([...attributes, { name: '', values: [], display_order: attributes.length, _newValue: '' }]);
   const removeAttribute = (idx: number) => setAttributes(attributes.filter((_, i) => i !== idx));
   const updateAttribute = (idx: number, field: keyof AttributeRow, val: string | string[] | number | undefined) =>
     setAttributes(attributes.map((a, i) => i === idx ? { ...a, [field]: val } : a));
   const addAttributeValue = (idx: number) => { const a = attributes[idx]; const v = (a._newValue || '').trim(); if (!v || a.values.includes(v)) return; setAttributes(attributes.map((a2, i) => i === idx ? { ...a2, values: [...a2.values, v], _newValue: '' } : a2)); };
   const removeAttributeValue = (ai: number, vi: number) => setAttributes(attributes.map((a, i) => i === ai ? { ...a, values: a.values.filter((_, j) => j !== vi) } : a));
-  const addVariant = () => { const opts: Record<string, string> = {}; attributes.forEach(a => { if (a.name) opts[a.name] = a.values[0] || ''; }); setVariants([...variants, { name: '', sku: '', price: form.price, compare_at_price: '', stock: '0', options: opts, is_active: true }]); };
+  const addVariant = () => { const opts: Record<string, string> = {}; attributes.forEach(a => { if (a.name) opts[a.name] = a.values[0] || ''; }); setVariants([...variants, { name: '', sku: '', price: form.price, compare_at_price: '', options: opts, is_active: true }]); };
   const removeVariant = (idx: number) => setVariants(variants.filter((_, i) => i !== idx));
   const updateVariant = (idx: number, field: keyof VariantRow, val: string | boolean | Record<string, string>) =>
     setVariants(variants.map((v, i) => i === idx ? { ...v, [field]: val } : v));
@@ -275,7 +297,7 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
     }, []);
     setVariants(combos.map(combo => {
       const options = Object.assign({}, ...combo);
-      return { name: Object.values(options).join(' / '), sku: '', price: form.price, compare_at_price: '', stock: '0', options, is_active: true };
+      return { name: Object.values(options).join(' / '), sku: '', price: form.price, compare_at_price: '', options, is_active: true };
     }));
     toast.success(`Generated ${combos.length} variants`);
   };
@@ -289,7 +311,7 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
       const productData = {
         name: form.name, description: form.description || null, price: parseFloat(form.price),
         compare_at_price: form.compare_at_price ? parseFloat(form.compare_at_price) : null,
-        category: form.category || null, tags: form.tags, stock: parseInt(form.stock),
+        category: form.category || null, collection_id: form.collection_id || null, tags: form.tags,
         image_url: imageUrls[0] || null, image_urls: imageUrls.length > 0 ? imageUrls : null, is_active: form.is_active,
         seller_id: form.seller_id || null,
       };
@@ -307,7 +329,7 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
       const validAttrs = attributes.filter(a => a.name.trim());
       if (validAttrs.length > 0) { const { error } = await supabase.from('product_attributes').insert(validAttrs.map((a, i) => ({ product_id: productId, name: a.name.trim(), values: a.values, display_order: i }))); if (error) throw error; }
       if (product) await supabase.from('product_variants').delete().eq('product_id', productId);
-      if (variants.length > 0) { const { error } = await supabase.from('product_variants').insert(variants.map(v => ({ product_id: productId, name: v.name || Object.values(v.options).join(' / ') || 'Default', sku: v.sku || null, price: parseFloat(v.price), compare_at_price: v.compare_at_price ? parseFloat(v.compare_at_price) : null, stock: parseInt(v.stock), options: v.options, is_active: v.is_active }))); if (error) throw error; }
+      if (variants.length > 0) { const { error } = await supabase.from('product_variants').insert(variants.map(v => ({ product_id: productId, name: v.name || Object.values(v.options).join(' / ') || 'Default', sku: v.sku || null, price: parseFloat(v.price), compare_at_price: v.compare_at_price ? parseFloat(v.compare_at_price) : null, options: v.options, is_active: v.is_active }))); if (error) throw error; }
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); queryClient.invalidateQueries({ queryKey: ['products'] }); toast.success(product ? 'Product updated' : 'Product created'); revokeProductImageItems(imagesRef.current); setImages([]); setOpen(false); },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Something went wrong'),
@@ -334,15 +356,12 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
                 <div className="space-y-2"><Label>Base Price</Label><Input type="number" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} /></div>
                 <div className="space-y-2"><Label>Compare At</Label><Input type="number" step="0.01" value={form.compare_at_price} onChange={e => setForm({ ...form, compare_at_price: e.target.value })} /></div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                    <SelectContent>{categories.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2"><Label>Base Stock</Label><Input type="number" value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} /></div>
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                  <SelectContent>{categories.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Tags</Label>
@@ -467,6 +486,21 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label>Collection</Label>
+                <Select value={form.collection_id || 'none'} onValueChange={v => setForm(prev => ({ ...prev, collection_id: v === 'none' ? '' : v }))}>
+                  <SelectTrigger><SelectValue placeholder={form.seller_id ? 'Select collection' : 'Select seller first'} /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No collection</SelectItem>
+                    {collections.map(collection => (
+                      <SelectItem key={collection.id} value={collection.id}>
+                        {collection.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Internal only. Used for store organization.</p>
+              </div>
             </div>
           </TabsContent>
           <TabsContent value="attributes">
@@ -491,13 +525,13 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
           <TabsContent value="variants">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">Each variant has its own price, stock, and SKU.</p>
+                <p className="text-sm text-muted-foreground">Each variant has its own price and SKU. Inventory is managed separately.</p>
                 <div className="flex gap-2">
                   <Button type="button" variant="outline" size="sm" onClick={generateVariants}>Auto-Generate</Button>
                   <Button type="button" variant="outline" size="sm" onClick={addVariant}><Plus className="h-4 w-4 mr-1" /> Add</Button>
                 </div>
               </div>
-              {variants.length === 0 && <p className="text-center py-6 text-muted-foreground text-sm">No variants. Uses base price and stock.</p>}
+              {variants.length === 0 && <p className="text-center py-6 text-muted-foreground text-sm">No variants. Uses base price and inventory defaults.</p>}
               {variants.map((variant, idx) => (
                 <div key={idx} className="border rounded-sm p-4 space-y-3">
                   <div className="flex items-center justify-between">
@@ -520,10 +554,9 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
                       ))}
                     </div>
                   )}
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <div className="space-y-1"><Label className="text-xs">Price</Label><Input type="number" step="0.01" value={variant.price} onChange={e => updateVariant(idx, 'price', e.target.value)} className="h-8 text-xs" /></div>
                     <div className="space-y-1"><Label className="text-xs">Compare At</Label><Input type="number" step="0.01" value={variant.compare_at_price} onChange={e => updateVariant(idx, 'compare_at_price', e.target.value)} className="h-8 text-xs" /></div>
-                    <div className="space-y-1"><Label className="text-xs">Stock</Label><Input type="number" value={variant.stock} onChange={e => updateVariant(idx, 'stock', e.target.value)} className="h-8 text-xs" /></div>
                     <div className="space-y-1"><Label className="text-xs">SKU</Label><Input value={variant.sku} onChange={e => updateVariant(idx, 'sku', e.target.value)} className="h-8 text-xs" /></div>
                   </div>
                 </div>
