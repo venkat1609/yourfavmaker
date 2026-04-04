@@ -15,8 +15,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        heading: ['DM Serif Display', 'serif'],
-        body: ['DM Sans', 'sans-serif'],
+        heading: ['Outfit', 'Space Grotesk', 'sans-serif'],
+        body: ['Space Grotesk', 'Inter', 'sans-serif'],
       },
       colors: {
         success: {

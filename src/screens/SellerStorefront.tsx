@@ -11,44 +11,44 @@ import { PaginationControls, usePagination } from '@/components/PaginationContro
 import { useState } from 'react';
 
 export default function SellerStorefront() {
-  const params = useParams<{ slug: string }>();
-  const slug = params?.slug;
+  const params = useParams<{ storeId: string }>();
+  const storeId = params?.storeId;
   const [page, setPage] = useState(1);
   const ITEMS_PER_PAGE = 12;
 
-  const { data: seller, isLoading: sellerLoading } = useQuery({
-    queryKey: ['seller', slug],
+  const { data: store, isLoading: storeLoading } = useQuery({
+    queryKey: ['seller', storeId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('sellers')
+        .from('stores')
         .select('*')
-        .eq('slug', slug!)
+        .eq('id', storeId!)
         .single();
       if (error) throw error;
       return data;
     },
-    enabled: !!slug,
+    enabled: !!storeId,
   });
 
   const { data: products = [] } = useQuery({
-    queryKey: ['seller-products', seller?.id],
+    queryKey: ['store-products', store?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('seller_id', seller!.id)
+        .eq('seller_id', store!.id)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
-    enabled: !!seller?.id,
+    enabled: !!store?.id,
   });
 
   const { totalPages, getPageItems } = usePagination(products, ITEMS_PER_PAGE);
   const pageProducts = getPageItems(page);
 
-  if (sellerLoading) {
+  if (storeLoading) {
     return (
       <div className="container py-12">
         <div className="h-32 bg-secondary rounded-sm animate-pulse mb-8" />
@@ -61,15 +61,15 @@ export default function SellerStorefront() {
     );
   }
 
-  if (!seller) {
+  if (!store) {
     return (
       <div className="container py-20 text-center">
-        <p className="text-muted-foreground">Seller not found</p>
+        <p className="text-muted-foreground">Store not found</p>
       </div>
     );
   }
 
-  const initials = seller.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+  const initials = store.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
 
   return (
     <div className="container py-12 animate-fade-in">
@@ -77,25 +77,25 @@ export default function SellerStorefront() {
         <ArrowLeft className="h-4 w-4" /> Back to products
       </Link>
 
-      {/* Seller header */}
+      {/* Store header */}
       <div className="flex items-start gap-6 mb-10 pb-8 border-b">
         <Avatar className="h-20 w-20 border">
-          {seller.logo_url ? <AvatarImage src={seller.logo_url} alt={seller.name} /> : null}
+          {store.logo_url ? <AvatarImage src={store.logo_url} alt={store.name} /> : null}
           <AvatarFallback className="bg-primary/10 text-primary text-xl font-medium">
             {initials}
           </AvatarFallback>
         </Avatar>
 
         <div className="flex-1">
-          <h1 className="text-2xl font-heading">{seller.name}</h1>
-          {seller.location && (
+          <h1 className="text-2xl font-heading">{store.name}</h1>
+          {store.location && (
             <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
               <MapPin className="h-3.5 w-3.5" />
-              <span className="text-sm">{seller.location}</span>
+              <span className="text-sm">{store.location}</span>
             </div>
           )}
-          {seller.description && (
-            <p className="text-sm text-muted-foreground mt-3 max-w-2xl leading-relaxed">{seller.description}</p>
+          {store.description && (
+            <p className="text-sm text-muted-foreground mt-3 max-w-2xl leading-relaxed">{store.description}</p>
           )}
         </div>
       </div>

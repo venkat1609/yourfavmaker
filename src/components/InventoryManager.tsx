@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from '@/components/ui/label';
 import { Search, Package, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
-import { useSellers } from '@/hooks/useAdminData';
+import { useStores } from '@/hooks/useAdminData';
 import type { Database } from '@/integrations/supabase/types';
 import { cn } from '@/lib/utils';
 
@@ -46,8 +46,8 @@ export function InventoryManager({
   const [draftStock, setDraftStock] = useState('0');
   const [draftVariants, setDraftVariants] = useState<VariantDraft[]>([]);
 
-  const { data: sellers = [] } = useSellers();
-  const sellerMap = useMemo(() => new Map(sellers.map(seller => [seller.id, seller])), [sellers]);
+  const { data: stores = [] } = useStores();
+  const storeMap = useMemo(() => new Map(stores.map(store => [store.id, store])), [stores]);
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['inventory-products', scope, sellerId],
@@ -97,14 +97,14 @@ export function InventoryManager({
     if (!search.trim()) return products;
     const q = search.toLowerCase();
     return products.filter(product => {
-      const sellerName = product.seller_id ? sellerMap.get(product.seller_id)?.name || '' : '';
+      const storeName = product.seller_id ? storeMap.get(product.seller_id)?.name || '' : '';
       return (
         product.name.toLowerCase().includes(q) ||
         (product.category || '').toLowerCase().includes(q) ||
-        sellerName.toLowerCase().includes(q)
+        storeName.toLowerCase().includes(q)
       );
     });
-  }, [products, search, sellerMap]);
+  }, [products, search, storeMap]);
 
   const selectedProduct = useMemo(
     () => products.find(product => product.id === selectedProductId) || null,
@@ -206,7 +206,7 @@ export function InventoryManager({
             </thead>
             <tbody>
               {filteredProducts.map(product => {
-                const seller = product.seller_id ? sellerMap.get(product.seller_id) : null;
+                const seller = product.seller_id ? storeMap.get(product.seller_id) : null;
                 const variantCount = variantsByProduct[product.id]?.length || 0;
                 return (
                   <tr key={product.id} className="border-b last:border-0">

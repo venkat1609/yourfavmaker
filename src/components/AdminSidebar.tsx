@@ -1,4 +1,4 @@
-import { Package, ShoppingCart, Users, LayoutDashboard, ArrowLeft, FolderOpen, Tag, Store, Boxes } from 'lucide-react';
+import { Package, ShoppingCart, Users, LayoutDashboard, ArrowLeft, FolderOpen, Tag, Store, Boxes, Clock } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import {
   Sidebar,
@@ -15,6 +15,7 @@ import {
 
 const dashboardItems = [
   { title: 'Overview', url: '/admin', icon: LayoutDashboard },
+  { title: 'Pending approvals', url: '/admin/pending-applications', icon: Clock },
 ];
 
 const catalogItems = [

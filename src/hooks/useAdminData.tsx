@@ -25,11 +25,11 @@ export function useTags() {
   });
 }
 
-export function useSellers() {
+export function useStores() {
   return useQuery({
-    queryKey: ['admin-sellers'],
+    queryKey: ['admin-stores'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('sellers').select('*').order('name');
+      const { data, error } = await supabase.from('stores').select('*').order('name');
       if (error) throw error;
       return data;
     },

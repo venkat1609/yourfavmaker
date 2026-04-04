@@ -6,7 +6,6 @@ interface SellerCardProps {
   seller: {
     id: string;
     name: string;
-    slug: string;
     logo_url: string | null;
     description: string | null;
     location: string | null;
@@ -18,7 +17,7 @@ export default function SellerCard({ seller }: SellerCardProps) {
 
   return (
     <Link
-      href={`/seller/${seller.slug}`}
+      href={`/seller/${seller.id}`}
       className="group flex items-center gap-4 rounded-md border p-4 transition-all duration-200 hover:border-ring/40 hover:shadow-sm active:scale-[0.99]"
     >
       <Avatar className="h-12 w-12 border">

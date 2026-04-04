@@ -90,10 +90,10 @@ export default function ProductDetail() {
     }) || null;
   }, [variants, selectedOptions]);
 
-  const { data: seller } = useQuery({
-    queryKey: ['product-seller', product?.seller_id],
+  const { data: store } = useQuery({
+    queryKey: ['product-store', product?.seller_id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('sellers').select('*').eq('id', product!.seller_id!).single();
+      const { data, error } = await supabase.from('stores').select('*').eq('id', product!.seller_id!).single();
       if (error) throw error;
       return data;
     },
@@ -323,10 +323,10 @@ export default function ProductDetail() {
           </p>
 
           {/* Seller info */}
-          {seller && (
+          {store && (
             <div className="pt-2">
               <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Sold by</p>
-              <SellerCard seller={seller} />
+              <SellerCard seller={store} />
             </div>
           )}
         </div>

@@ -90,12 +90,17 @@ function ProfilePopover() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
-  const { data: seller } = useQuery({
-    queryKey: ['my-seller', user?.id],
+  const { data: activeStore } = useQuery({
+    queryKey: ['my-store', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('sellers').select('id, status').eq('user_id', user!.id).maybeSingle();
+      const { data, error } = await supabase
+        .from('stores')
+        .select('id, name, status')
+        .eq('user_id', user!.id)
+        .order('created_at', { descending: true })
+        .limit(1);
       if (error) throw error;
-      return data as { id: string; status: string } | null;
+      return data?.[0] || null;
     },
     enabled: !!user && open,
   });
@@ -205,7 +210,7 @@ function ProfilePopover() {
           >
             <Package className="h-4 w-4 text-muted-foreground" /> Orders
           </button>
-          {!seller && (
+          {!activeStore && (
             <button
               onClick={() => { setOpen(false); router.push('/seller' as Route); }}
               className="flex items-center gap-2 w-full px-2 py-2 text-sm rounded-sm hover:bg-secondary transition-colors"
@@ -213,7 +218,7 @@ function ProfilePopover() {
               <Store className="h-4 w-4 text-muted-foreground" /> Become a Seller
             </button>
           )}
-          {seller && (
+          {activeStore && (
             <button
               onClick={() => { setOpen(false); router.push('/seller/dashboard'); }}
               className="flex items-center gap-2 w-full px-2 py-2 text-sm rounded-sm hover:bg-secondary transition-colors"

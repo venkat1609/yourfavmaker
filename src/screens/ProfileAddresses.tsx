@@ -34,16 +34,18 @@ type AddressFormState = {
 
 export default function ProfileAddresses() {
   const { user, loading } = useAuth();
+  const userId = user?.id;
   const queryClient = useQueryClient();
 
   const { data: addresses = [], isLoading } = useQuery({
     queryKey: ['addresses', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('addresses').select('*').eq('user_id', user!.id).order('is_primary', { ascending: false });
+      if (!userId) return [] as AddressRecord[];
+      const { data, error } = await supabase.from('addresses').select('*').eq('user_id', userId).order('is_primary', { ascending: false });
       if (error) throw error;
       return data as AddressRecord[];
     },
-    enabled: !!user,
+    enabled: !!userId,
   });
 
   const deleteAddress = useMutation({
@@ -74,7 +76,7 @@ export default function ProfileAddresses() {
     <div className="container py-12 max-w-2xl animate-fade-in">
       <div className="flex items-center justify-between gap-4 mb-8">
         <h1 className="text-3xl font-heading">Addresses</h1>
-        <AddAddressDialog userId={user.id} />
+        {userId && <AddAddressDialog userId={userId} />}
       </div>
 
       {addresses.length === 0 ? (

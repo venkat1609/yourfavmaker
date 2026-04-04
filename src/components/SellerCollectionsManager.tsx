@@ -26,8 +26,6 @@ type CollectionFormState = {
   description: string;
 };
 
-const generateCollectionSlug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-
 export type SellerCollectionsManagerHandle = {
   openCreateCollection: () => void;
 };
@@ -110,22 +108,6 @@ export const SellerCollectionsManager = forwardRef<SellerCollectionsManagerHandl
       [collections, products],
     );
 
-    const createUniqueSlug = (name: string, excludeId?: string) => {
-      const baseSlug = generateCollectionSlug(name);
-      const existingSlugs = collections
-        .filter(collection => collection.id !== excludeId)
-        .map(collection => collection.slug);
-
-      let candidate = baseSlug;
-      let suffix = 1;
-      while (existingSlugs.includes(candidate)) {
-        candidate = `${baseSlug}-${suffix}`;
-        suffix += 1;
-      }
-
-      return candidate;
-    };
-
     useEffect(() => {
       if (!editingCollection) {
         setForm({ name: '', description: '' });
@@ -173,7 +155,6 @@ export const SellerCollectionsManager = forwardRef<SellerCollectionsManagerHandl
         const payload = {
           seller_id: sellerId,
           name: form.name.trim(),
-          slug: createUniqueSlug(form.name.trim(), editingCollection?.id),
           description: form.description.trim() || null,
         };
 
@@ -393,7 +374,7 @@ export const SellerCollectionsManager = forwardRef<SellerCollectionsManagerHandl
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingCollection ? 'Edit Collection' : 'New Collection'}</DialogTitle>
-            <DialogDescription>Collection names generate unique slugs automatically. They are internal only.</DialogDescription>
+            <DialogDescription>Collection names must be unique per storefront and help you stay organized.</DialogDescription>
           </DialogHeader>
 
           <form

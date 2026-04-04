@@ -32,7 +32,7 @@ import { PaginationControls, usePagination } from '@/components/PaginationContro
 import { useCategories, useTags } from '@/hooks/useAdminData';
 import type { Database } from '@/integrations/supabase/types';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { SellerSidebar } from '@/components/SellerSidebar';
 import { InventoryManager } from '@/components/InventoryManager';
@@ -41,7 +41,7 @@ import type { ProductImageItem } from '@/lib/productImages';
 import { createProductImageItemsFromFiles, reorderProductImageItems, revokeProductImageItems, resolveProductImageUrls } from '@/lib/productImages';
 import { cn } from '@/lib/utils';
 
-type SellerRow = Database['public']['Tables']['sellers']['Row'];
+type StoreRow = Database['public']['Tables']['stores']['Row'];
 type ProductRow = Database['public']['Tables']['products']['Row'];
 type SellerSection = 'overview' | 'inventory' | 'collections' | 'products' | 'orders' | 'inquiries' | 'settings' | 'earnings' | 'payments';
 
@@ -72,17 +72,14 @@ type SellerPaymentHistoryItem = {
   item_count: number;
 };
 
+type StorePaymentRow = Database['public']['Tables']['store_payments']['Row'];
+
 type SellerStoreFormState = {
   name: string;
-  slug: string;
   description: string;
-  phone: string;
-  logo_url: string;
-  address_street: string;
-  address_city: string;
-  address_state: string;
-  address_zip: string;
-  address_country: string;
+  location: string;
+  business_registration_number: string;
+  pan: string;
 };
 
 type SellerPaymentsFormState = {
@@ -92,10 +89,8 @@ type SellerPaymentsFormState = {
   tax_id: string;
 };
 
-const generateStoreSlug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-
-async function fetchSellerDashboardStats(sellerIds: string[]): Promise<SellerStoreStats> {
-  if (sellerIds.length === 0) {
+async function fetchSellerDashboardStats(storeIds: string[]): Promise<SellerStoreStats> {
+  if (storeIds.length === 0) {
     return {
       productCount: 0,
       activeProductCount: 0,
@@ -110,7 +105,7 @@ async function fetchSellerDashboardStats(sellerIds: string[]): Promise<SellerSto
   const { data: storeProducts, error: productsError } = await supabase
     .from('products')
     .select('id, is_active')
-    .in('seller_id', sellerIds);
+    .in('seller_id', storeIds);
 
   if (productsError) throw productsError;
 
@@ -255,50 +250,43 @@ export default function SellerDashboard() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
 
-  const { data: sellers = [], isLoading: sellersLoading } = useQuery({
-    queryKey: ['my-sellers', user?.id],
+  const { data: stores = [], isLoading: storesLoading } = useQuery({
+    queryKey: ['my-stores', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('sellers').select('*').eq('user_id', user!.id).order('created_at', { ascending: false });
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from('stores')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
       if (error) throw error;
-      return data as SellerRow[];
+      return data as StoreRow[];
     },
     enabled: !!user,
   });
 
-  const selectedStoreSlug = searchParams?.get('store');
-  const selectedSeller = useMemo(() => {
-    if (!selectedStoreSlug) return null;
-    return sellers.find(store => store.slug === selectedStoreSlug) || null;
-  }, [sellers, selectedStoreSlug]);
+  const selectedStoreId = searchParams?.get('store');
+  const selectedStore = useMemo(() => {
+    if (!selectedStoreId) return null;
+    return stores.find(store => store.id === selectedStoreId) || null;
+  }, [stores, selectedStoreId]);
   const activeSection = ((searchParams?.get('section') || 'overview') as SellerSection);
 
-  if (sellersLoading) return <div className="container py-12"><div className="h-40 bg-secondary rounded-sm animate-pulse" /></div>;
+  if (storesLoading) return <div className="container py-12"><div className="h-40 bg-secondary rounded-sm animate-pulse" /></div>;
 
-  if (sellers.length === 0) {
-    return (
-      <div className="container max-w-lg py-20 text-center animate-fade-in">
-        <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-        <h1 className="text-2xl font-heading mb-3">No Seller Account</h1>
-        <p className="text-muted-foreground mb-6">You haven't created any stores yet.</p>
-        <Button asChild><Link href="/seller/register">Create Store</Link></Button>
-      </div>
-    );
+  if (!selectedStoreId) {
+    return <SellerOverviewDashboard stores={stores} />;
   }
 
-  if (!selectedStoreSlug) {
-    return <SellerOverviewDashboard sellers={sellers} />;
+  if (!selectedStore) {
+    return <SellerOverviewDashboard stores={stores} />;
   }
 
-  if (!selectedSeller) {
-    return <SellerOverviewDashboard sellers={sellers} />;
-  }
-
-  return <SellerStoreDashboard seller={selectedSeller} sellers={sellers} activeSection={activeSection} />;
+  return <SellerStoreDashboard seller={selectedStore} stores={stores} activeSection={activeSection} />;
 }
 
-function SellerStoreDashboard({ seller, sellers, activeSection }: { seller: SellerRow; sellers: SellerRow[]; activeSection: SellerSection }) {
+function SellerStoreDashboard({ seller, stores, activeSection }: { seller: StoreRow; stores: StoreRow[]; activeSection: SellerSection }) {
   const queryClient = useQueryClient();
-  const router = useRouter();
   const collectionsManagerRef = useRef<SellerCollectionsManagerHandle>(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -366,7 +354,7 @@ function SellerStoreDashboard({ seller, sellers, activeSection }: { seller: Sell
 
   const metricCards = [
     { label: 'Active Products', value: stats?.activeProductCount ?? '—' },
-    { label: 'Pending Orders', value: stats?.pendingOrderCount ?? '—' },
+    { label: 'Active Orders', value: stats?.orderCount ?? '—' },
     { label: 'Units Sold', value: stats?.unitsSold ?? '—' },
     { label: 'Sales', value: stats ? `₹${stats.revenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—' },
   ];
@@ -415,7 +403,7 @@ function SellerStoreDashboard({ seller, sellers, activeSection }: { seller: Sell
   return (
     <SidebarProvider>
       <div className="min-h-[calc(100vh-4rem)] flex w-full">
-        <SellerSidebar sellers={sellers} activeSellerSlug={seller.slug} activeSection={activeSection} />
+        <SellerSidebar stores={stores} activeStoreId={seller.id} activeSection={activeSection} />
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-12 flex items-center border-b px-4 gap-3">
             <SidebarTrigger />
@@ -427,15 +415,7 @@ function SellerStoreDashboard({ seller, sellers, activeSection }: { seller: Sell
             <div className="animate-fade-in">
               {activeSection === 'settings' ? (
                 <section className="space-y-6">
-                  <SellerStoreSettingsForm
-                    seller={seller}
-                    onSaved={(updatedSlug) => {
-                      if (updatedSlug) {
-                        router.replace(`/seller/dashboard?store=${encodeURIComponent(updatedSlug)}`);
-                      }
-                      queryClient.invalidateQueries({ queryKey: ['my-sellers', seller.user_id] });
-                    }}
-                  />
+                  <SellerStoreSettingsForm seller={seller} />
                 </section>
               ) : isApproved ? (
                 <div className="space-y-6">
@@ -479,10 +459,6 @@ function SellerStoreDashboard({ seller, sellers, activeSection }: { seller: Sell
                             <div className="flex items-center justify-between gap-3">
                               <span className="text-muted-foreground">Name</span>
                               <span className="font-medium text-right">{seller.name}</span>
-                            </div>
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-muted-foreground">Slug</span>
-                              <span className="font-medium text-right">{seller.slug}</span>
                             </div>
                             <div className="flex items-center justify-between gap-3">
                               <span className="text-muted-foreground">Status</span>
@@ -747,72 +723,46 @@ function SellerStoreDashboard({ seller, sellers, activeSection }: { seller: Sell
   );
 }
 
-function SellerStoreSettingsForm({
-  seller,
-  onSaved,
-}: {
-  seller: SellerRow;
-  onSaved?: (updatedSlug?: string) => void;
-}) {
+function SellerStoreSettingsForm({ seller }: { seller: StoreRow }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<SellerStoreFormState>({
     name: seller.name || '',
-    slug: seller.slug || '',
     description: seller.description || '',
-    phone: seller.phone || '',
-    logo_url: seller.logo_url || '',
-    address_street: seller.address_street || '',
-    address_city: seller.address_city || '',
-    address_state: seller.address_state || '',
-    address_zip: seller.address_zip || '',
-    address_country: seller.address_country || 'IN',
+    location: seller.location || '',
+    business_registration_number: seller.business_registration_number || '',
+    pan: seller.pan || '',
   });
 
   useEffect(() => {
     setForm({
       name: seller.name || '',
-      slug: seller.slug || '',
       description: seller.description || '',
-      phone: seller.phone || '',
-      logo_url: seller.logo_url || '',
-      address_street: seller.address_street || '',
-      address_city: seller.address_city || '',
-      address_state: seller.address_state || '',
-      address_zip: seller.address_zip || '',
-      address_country: seller.address_country || 'IN',
+      location: seller.location || '',
+      business_registration_number: seller.business_registration_number || '',
+      pan: seller.pan || '',
     });
   }, [seller]);
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const slug = generateStoreSlug(form.slug.trim() || form.name);
-      const { data, error } = await supabase
-        .from('sellers')
+      const { error } = await supabase
+        .from('stores')
         .update({
           name: form.name.trim(),
-          slug,
           description: form.description.trim() || null,
-          phone: form.phone.trim() || null,
-          logo_url: form.logo_url.trim() || null,
-          address_street: form.address_street.trim() || null,
-          address_city: form.address_city.trim() || null,
-          address_state: form.address_state.trim() || null,
-          address_zip: form.address_zip.trim() || null,
-          address_country: form.address_country.trim() || null,
+          location: form.location.trim() || null,
+          business_registration_number: form.business_registration_number.trim() || null,
+          pan: form.pan.trim() || null,
         })
-        .eq('id', seller.id)
-        .select('slug')
-        .single();
+        .eq('id', seller.id);
 
       if (error) throw error;
-      return data;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['my-sellers', seller.user_id] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-stores', seller.user_id] });
       queryClient.invalidateQueries({ queryKey: ['seller-products', seller.id] });
       queryClient.invalidateQueries({ queryKey: ['seller-dashboard-stats', seller.id] });
       toast.success('Store updated');
-      onSaved?.(data?.slug || generateStoreSlug(form.slug.trim() || form.name));
     },
     onError: (error: unknown) => {
       toast.error(error instanceof Error ? error.message : 'Unable to update store');
@@ -829,58 +779,29 @@ function SellerStoreSettingsForm({
     >
       <div className="border rounded-sm p-4 space-y-4">
         <p className="text-xs uppercase tracking-wider text-muted-foreground">Store Information</p>
-        <div className="grid gap-4 md:grid-cols-12">
-          <div className="space-y-2 md:col-span-6">
-            <Label>Store Name *</Label>
-            <Input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value, slug: prev.slug || generateStoreSlug(e.target.value) }))} />
-          </div>
-          <div className="space-y-2 md:col-span-6">
-            <Label>Store Slug *</Label>
-            <Input value={form.slug} onChange={e => setForm(prev => ({ ...prev, slug: e.target.value }))} />
-          </div>
+        <div className="space-y-3">
+          <Label>Store Name *</Label>
+          <Input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
         </div>
-        <p className="text-xs text-muted-foreground">This updates the storefront URL and dashboard store selector. Store name and slug must be unique.</p>
-
-        <div className="space-y-2">
+        <div className="space-y-3">
           <Label>Description</Label>
-          <Textarea value={form.description} onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))} rows={3} />
+          <Textarea value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} rows={3} />
         </div>
-
-        <div className="grid gap-4 md:grid-cols-12">
-          <div className="space-y-2 md:col-span-6">
-            <Label>Phone *</Label>
-            <Input value={form.phone} onChange={e => setForm(prev => ({ ...prev, phone: e.target.value }))} />
-          </div>
-          <div className="space-y-2 md:col-span-6">
-            <Label>Logo URL</Label>
-            <Input value={form.logo_url} onChange={e => setForm(prev => ({ ...prev, logo_url: e.target.value }))} />
-          </div>
+        <div className="space-y-3">
+          <Label>Location *</Label>
+          <Input value={form.location} onChange={(e) => setForm((prev) => ({ ...prev, location: e.target.value }))} />
         </div>
-
-        <div className="space-y-2">
-          <Label>Street Address *</Label>
-          <Input value={form.address_street} onChange={e => setForm(prev => ({ ...prev, address_street: e.target.value }))} />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-12">
-          <div className="space-y-2 md:col-span-6">
-            <Label>City *</Label>
-            <Input value={form.address_city} onChange={e => setForm(prev => ({ ...prev, address_city: e.target.value }))} />
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-3">
+            <Label>GSTIN *</Label>
+            <Input
+              value={form.business_registration_number}
+              onChange={(e) => setForm((prev) => ({ ...prev, business_registration_number: e.target.value.toUpperCase() }))}
+            />
           </div>
-          <div className="space-y-2 md:col-span-6">
-            <Label>State *</Label>
-            <Input value={form.address_state} onChange={e => setForm(prev => ({ ...prev, address_state: e.target.value }))} />
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-12">
-          <div className="space-y-2 md:col-span-6">
-            <Label>ZIP Code *</Label>
-            <Input value={form.address_zip} onChange={e => setForm(prev => ({ ...prev, address_zip: e.target.value }))} />
-          </div>
-          <div className="space-y-2 md:col-span-6">
-            <Label>Country</Label>
-            <Input value={form.address_country} onChange={e => setForm(prev => ({ ...prev, address_country: e.target.value }))} />
+          <div className="space-y-3">
+            <Label>PAN *</Label>
+            <Input value={form.pan} onChange={(e) => setForm((prev) => ({ ...prev, pan: e.target.value.toUpperCase() }))} />
           </div>
         </div>
       </div>
@@ -891,12 +812,9 @@ function SellerStoreSettingsForm({
         disabled={
           mutation.isPending ||
           !form.name.trim() ||
-          !form.slug.trim() ||
-          !form.phone.trim() ||
-          !form.address_street.trim() ||
-          !form.address_city.trim() ||
-          !form.address_state.trim() ||
-          !form.address_zip.trim()
+          !form.location.trim() ||
+          !form.business_registration_number.trim() ||
+          !form.pan.trim()
         }
       >
         {mutation.isPending ? 'Saving...' : 'Save Store'}
@@ -905,40 +823,55 @@ function SellerStoreSettingsForm({
   );
 }
 
-function SellerPaymentsForm({ seller }: { seller: SellerRow }) {
+function SellerPaymentsForm({ seller }: { seller: StoreRow }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<SellerPaymentsFormState>({
-    bank_name: seller.bank_name || '',
-    bank_account_number: seller.bank_account_number || '',
-    bank_ifsc: seller.bank_ifsc || '',
-    tax_id: seller.tax_id || '',
+    bank_name: '',
+    bank_account_number: '',
+    bank_ifsc: '',
+    tax_id: '',
+  });
+  const { data: payment, isLoading: paymentLoading } = useQuery({
+    queryKey: ['store-payments', seller.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('store_payments')
+        .select('*')
+        .eq('store_id', seller.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as StorePaymentRow | null;
+    },
   });
 
   useEffect(() => {
     setForm({
-      bank_name: seller.bank_name || '',
-      bank_account_number: seller.bank_account_number || '',
-      bank_ifsc: seller.bank_ifsc || '',
-      tax_id: seller.tax_id || '',
+      bank_name: payment?.bank_name || '',
+      bank_account_number: payment?.bank_account_number || '',
+      bank_ifsc: payment?.bank_ifsc || '',
+      tax_id: payment?.tax_id || '',
     });
-  }, [seller]);
+  }, [payment]);
 
   const mutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
-        .from('sellers')
-        .update({
-          bank_name: form.bank_name.trim() || null,
-          bank_account_number: form.bank_account_number.trim() || null,
-          bank_ifsc: form.bank_ifsc.trim() || null,
-          tax_id: form.tax_id.trim() || null,
-        })
-        .eq('id', seller.id);
-
+        .from('store_payments')
+        .upsert(
+          {
+            store_id: seller.id,
+            bank_name: form.bank_name.trim() || null,
+            bank_account_number: form.bank_account_number.trim() || null,
+            bank_ifsc: form.bank_ifsc.trim() || null,
+            tax_id: form.tax_id.trim() || null,
+          },
+          { onConflict: 'store_id' },
+        )
+        .select('id');
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-sellers', seller.user_id] });
+      queryClient.invalidateQueries({ queryKey: ['store-payments', seller.id] });
       queryClient.invalidateQueries({ queryKey: ['seller-dashboard-stats', seller.id] });
       toast.success('Payment details updated');
     },
@@ -958,22 +891,38 @@ function SellerPaymentsForm({ seller }: { seller: SellerRow }) {
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label>Bank Name *</Label>
-          <Input value={form.bank_name} onChange={e => setForm(prev => ({ ...prev, bank_name: e.target.value }))} />
+          <Input
+            value={form.bank_name}
+            onChange={e => setForm(prev => ({ ...prev, bank_name: e.target.value }))}
+            disabled={paymentLoading || mutation.isPending}
+          />
         </div>
         <div className="space-y-2">
           <Label>Account Number *</Label>
-          <Input value={form.bank_account_number} onChange={e => setForm(prev => ({ ...prev, bank_account_number: e.target.value }))} />
+          <Input
+            value={form.bank_account_number}
+            onChange={e => setForm(prev => ({ ...prev, bank_account_number: e.target.value }))}
+            disabled={paymentLoading || mutation.isPending}
+          />
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label>IFSC Code *</Label>
-          <Input value={form.bank_ifsc} onChange={e => setForm(prev => ({ ...prev, bank_ifsc: e.target.value }))} />
+          <Input
+            value={form.bank_ifsc}
+            onChange={e => setForm(prev => ({ ...prev, bank_ifsc: e.target.value }))}
+            disabled={paymentLoading || mutation.isPending}
+          />
         </div>
         <div className="space-y-2">
           <Label>Tax ID / GSTIN *</Label>
-          <Input value={form.tax_id} onChange={e => setForm(prev => ({ ...prev, tax_id: e.target.value }))} />
+          <Input
+            value={form.tax_id}
+            onChange={e => setForm(prev => ({ ...prev, tax_id: e.target.value }))}
+            disabled={paymentLoading || mutation.isPending}
+          />
         </div>
       </div>
 
@@ -982,6 +931,7 @@ function SellerPaymentsForm({ seller }: { seller: SellerRow }) {
         className="w-full"
         disabled={
           mutation.isPending ||
+          paymentLoading ||
           !form.bank_name.trim() ||
           !form.bank_account_number.trim() ||
           !form.bank_ifsc.trim() ||
@@ -1043,18 +993,22 @@ function SellerPaymentHistory({ sellerId }: { sellerId: string }) {
   );
 }
 
-function SellerOverviewDashboard({ sellers }: { sellers: SellerRow[] }) {
+function SellerOverviewDashboard({ stores }: { stores: StoreRow[] }) {
+  const storeIds = useMemo(() => stores.map(store => store.id), [stores]);
   const { data: stats } = useQuery({
-    queryKey: ['seller-dashboard-stats', 'overview', sellers.map(seller => seller.id)],
-    enabled: sellers.length > 0,
-    queryFn: async () => fetchSellerDashboardStats(sellers.map(seller => seller.id)),
+    queryKey: ['seller-dashboard-stats', 'overview', storeIds],
+    enabled: storeIds.length > 0,
+    queryFn: async () => fetchSellerDashboardStats(storeIds),
   });
 
   const metricCards = [
-    { label: 'Stores', value: sellers.length },
-    { label: 'Total Products', value: stats?.productCount ?? '—' },
-    { label: 'Active Products', value: stats?.activeProductCount ?? '—' },
-    { label: 'Pending Orders', value: stats?.pendingOrderCount ?? '—' },
+    {
+      label: 'Active Products',
+      value: stats
+        ? `${stats.activeProductCount} / ${stats.productCount}`
+        : '—',
+    },
+    { label: 'Active Orders', value: stats?.orderCount ?? '—' },
     { label: 'Units Sold', value: stats?.unitsSold ?? '—' },
     { label: 'Sales', value: stats ? `₹${stats.revenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—' },
   ];
@@ -1062,82 +1016,92 @@ function SellerOverviewDashboard({ sellers }: { sellers: SellerRow[] }) {
   return (
     <SidebarProvider>
       <div className="min-h-[calc(100vh-4rem)] flex w-full">
-        <SellerSidebar sellers={sellers} activeSellerSlug={null} />
+        <SellerSidebar stores={stores} activeStoreId={null} />
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-12 flex items-center border-b px-4 gap-3">
             <SidebarTrigger />
             <span className="text-sm font-medium text-muted-foreground">Overview</span>
           </header>
           <main className="flex-1 p-6 md:p-8 overflow-auto">
-            <div className="animate-fade-in">
-         
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4 mb-8">
-                {metricCards.map(card => (
-                  <div key={card.label} className="border rounded-sm p-5 space-y-2">
-                    <p className="text-xs uppercase tracking-wider text-muted-foreground">{card.label}</p>
-                    <p className="text-2xl font-heading">{card.value}</p>
-                  </div>
-                ))}
+          <div className="animate-fade-in">
+            {stores.length === 0 ? (
+              <div className="border rounded-sm px-6 py-8 space-y-4 text-center w-full">
+                <p className="text-sm text-muted-foreground leading-relaxed max-w-xl mx-auto">
+                  You haven't created any storefronts yet. Start by adding your first store to begin listing products.
+                </p>
+                <Button asChild size="sm" className="mx-auto">
+                  <Link href="/seller/register">Create Store</Link>
+                </Button>
               </div>
-
-              <div className="grid lg:grid-cols-2 gap-4">
-                <div className="border rounded-sm p-5 space-y-4">
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Storefronts</p>
-                  <div className="space-y-3">
-                    {sellers.map(seller => (
-                      <Link
-                        key={seller.id}
-                        href={`/seller/dashboard?store=${encodeURIComponent(seller.slug)}`}
-                        className="flex items-center justify-between gap-3 rounded-sm border px-3 py-2 text-sm hover:bg-accent/40 transition-colors"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{seller.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{seller.slug}</p>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'capitalize',
-                            seller.status === 'approved' && 'border-success/30 text-success',
-                            seller.status === 'pending' && 'border-accent/30 text-accent',
-                            seller.status === 'rejected' && 'border-destructive/30 text-destructive',
-                          )}
-                        >
-                          {seller.status}
-                        </Badge>
-                      </Link>
-                    ))}
-                  </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                  {metricCards.map(card => (
+                    <div key={card.label} className="border rounded-sm p-5 space-y-2">
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground">{card.label}</p>
+                      <p className="text-2xl font-heading">{card.value}</p>
+                    </div>
+                  ))}
                 </div>
 
-                <div className="border rounded-sm p-5">
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">Recent Orders</p>
-                  {stats?.recentOrders.length ? (
+                <div className="grid lg:grid-cols-2 gap-4">
+                  <div className="border rounded-sm p-5 space-y-4">
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground">Storefronts</p>
                     <div className="space-y-3">
-                      {stats.recentOrders.map(order => (
-                        <div key={order.id} className="flex items-center justify-between gap-3 text-sm">
-                          <div>
-                            <p className="font-medium">#{order.id.slice(0, 8)}</p>
-                            <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleDateString()}</p>
+                      {stores.map(store => (
+                        <Link
+                          key={store.id}
+                          href={`/seller/dashboard?store=${encodeURIComponent(store.id)}`}
+                          className="flex items-center justify-between gap-3 rounded-sm border px-3 py-2 text-sm hover:bg-accent/40 transition-colors"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-medium truncate">{store.name}</p>
                           </div>
-                          <div className="text-right">
-                            <p className="font-medium">₹{order.revenue.toFixed(2)}</p>
-                            <p className="text-xs text-muted-foreground capitalize">{order.status}</p>
-                          </div>
-                        </div>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'capitalize',
+                              store.status === 'approved' && 'border-success/30 text-success',
+                              store.status === 'pending' && 'border-accent/30 text-accent',
+                              store.status === 'rejected' && 'border-destructive/30 text-destructive',
+                            )}
+                          >
+                            {store.status}
+                          </Badge>
+                        </Link>
                       ))}
                     </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No orders yet across your stores.</p>
-                  )}
+                  </div>
+
+                  <div className="border rounded-sm p-5">
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">Recent Orders</p>
+                    {stats?.recentOrders.length ? (
+                      <div className="space-y-3">
+                        {stats.recentOrders.map(order => (
+                          <div key={order.id} className="flex items-center justify-between gap-3 text-sm">
+                            <div>
+                              <p className="font-medium">#{order.id.slice(0, 8)}</p>
+                              <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleDateString()}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium">₹{order.revenue.toFixed(2)}</p>
+                              <p className="text-xs text-muted-foreground capitalize">{order.status}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No orders yet across your stores.</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
-          </main>
-        </div>
+              </>
+            )}
+          </div>
+        </main>
       </div>
-    </SidebarProvider>
+    </div>
+  </SidebarProvider>
   );
 }
 
@@ -1225,9 +1189,9 @@ function SellerProductFormDialog({ sellerId, product }: { sellerId: string; prod
   const { data: collections = [] } = useQuery({
     queryKey: ['seller-collections', sellerId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('collections').select('id, name, slug').eq('seller_id', sellerId).order('name');
+      const { data, error } = await supabase.from('collections').select('id, name').eq('seller_id', sellerId).order('name');
       if (error) throw error;
-      return data as Array<{ id: string; name: string; slug: string }>;
+      return data as Array<{ id: string; name: string }>;
     },
   });
 

@@ -359,7 +359,7 @@ export type Database = {
             foreignKeyName: "products_seller_id_fkey"
             columns: ["seller_id"]
             isOneToOne: false
-            referencedRelation: "sellers"
+            referencedRelation: "stores"
             referencedColumns: ["id"]
           },
         ]
@@ -371,7 +371,6 @@ export type Database = {
           id: string
           name: string
           seller_id: string
-          slug: string
           updated_at: string
         }
         Insert: {
@@ -380,7 +379,6 @@ export type Database = {
           id?: string
           name: string
           seller_id: string
-          slug: string
           updated_at?: string
         }
         Update: {
@@ -389,7 +387,6 @@ export type Database = {
           id?: string
           name?: string
           seller_id?: string
-          slug?: string
           updated_at?: string
         }
         Relationships: [
@@ -397,7 +394,7 @@ export type Database = {
             foreignKeyName: "collections_seller_id_fkey"
             columns: ["seller_id"]
             isOneToOne: false
-            referencedRelation: "sellers"
+            referencedRelation: "stores"
             referencedColumns: ["id"]
           },
         ]
@@ -435,26 +432,30 @@ export type Database = {
         }
         Relationships: []
       }
-      sellers: {
+      stores: {
         Row: {
           address_city: string | null
           address_country: string | null
           address_state: string | null
           address_street: string | null
           address_zip: string | null
-          bank_account_number: string | null
-          bank_ifsc: string | null
-          bank_name: string | null
+          business_registration_number: string | null
+          slug: string
           created_at: string
           description: string | null
           id: string
           location: string | null
           logo_url: string | null
           name: string
+          pan: string | null
           phone: string | null
-          slug: string
+          pickup_address_city: string | null
+          pickup_address_country: string | null
+          pickup_address_state: string | null
+          pickup_address_street: string | null
+          pickup_address_zip: string | null
+          seller_id: string
           status: string
-          tax_id: string | null
           updated_at: string
           user_id: string | null
         }
@@ -464,19 +465,23 @@ export type Database = {
           address_state?: string | null
           address_street?: string | null
           address_zip?: string | null
-          bank_account_number?: string | null
-          bank_ifsc?: string | null
-          bank_name?: string | null
+          business_registration_number?: string | null
+          slug?: string
           created_at?: string
           description?: string | null
           id?: string
           location?: string | null
           logo_url?: string | null
           name: string
+          pan?: string | null
           phone?: string | null
-          slug: string
+          pickup_address_city?: string | null
+          pickup_address_country?: string | null
+          pickup_address_state?: string | null
+          pickup_address_street?: string | null
+          pickup_address_zip?: string | null
+          seller_id: string
           status?: string
-          tax_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -486,23 +491,80 @@ export type Database = {
           address_state?: string | null
           address_street?: string | null
           address_zip?: string | null
-          bank_account_number?: string | null
-          bank_ifsc?: string | null
-          bank_name?: string | null
+          business_registration_number?: string | null
+          slug?: string
           created_at?: string
           description?: string | null
           id?: string
           location?: string | null
           logo_url?: string | null
           name?: string
+          pan?: string | null
           phone?: string | null
-          slug?: string
+          pickup_address_city?: string | null
+          pickup_address_country?: string | null
+          pickup_address_state?: string | null
+          pickup_address_street?: string | null
+          pickup_address_zip?: string | null
+          seller_id?: string
           status?: string
-          tax_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Relationships: []
+      }
+      store_payments: {
+        Row: {
+          account_holder_name: string | null
+          bank_account_number: string | null
+          bank_ifsc: string | null
+          bank_name: string | null
+          authorized_signature_url: string | null
+          cancelled_cheque_url: string | null
+          gst_certificate_url: string | null
+          created_at: string
+          id: string
+          store_id: string
+          tax_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_holder_name?: string | null
+          bank_account_number?: string | null
+          bank_ifsc?: string | null
+          bank_name?: string | null
+          authorized_signature_url?: string | null
+          cancelled_cheque_url?: string | null
+          gst_certificate_url?: string | null
+          created_at?: string
+          id?: string
+          store_id: string
+          tax_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_holder_name?: string | null
+          bank_account_number?: string | null
+          bank_ifsc?: string | null
+          bank_name?: string | null
+          authorized_signature_url?: string | null
+          cancelled_cheque_url?: string | null
+          gst_certificate_url?: string | null
+          created_at?: string
+          id?: string
+          store_id?: string
+          tax_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_payments_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tags: {
         Row: {

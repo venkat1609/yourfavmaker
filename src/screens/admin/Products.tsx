@@ -16,7 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, X, Search, GripVertical } from 'lucide-react';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
-import { useCategories, useTags, useSellers } from '@/hooks/useAdminData';
+import { useCategories, useTags, useStores } from '@/hooks/useAdminData';
 import type { Database } from '@/integrations/supabase/types';
 import type { ProductImageItem } from '@/lib/productImages';
 import { createProductImageItemsFromFiles, reorderProductImageItems, revokeProductImageItems, resolveProductImageUrls } from '@/lib/productImages';
@@ -189,7 +189,7 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
 
   const { data: categories = [] } = useCategories();
   const { data: tags = [] } = useTags();
-  const { data: sellers = [] } = useSellers();
+  const { data: stores = [] } = useStores();
   const [attributes, setAttributes] = useState<AttributeRow[]>([]);
   const [variants, setVariants] = useState<VariantRow[]>([]);
 
@@ -265,9 +265,9 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
     queryFn: async () => {
       const sellerId = form.seller_id || product?.seller_id;
       if (!sellerId) return [];
-      const { data, error } = await supabase
-        .from('collections')
-        .select('id, name, slug')
+    const { data, error } = await supabase
+      .from('collections')
+      .select('id, name')
         .eq('seller_id', sellerId)
         .order('name');
       if (error) throw error;
@@ -476,16 +476,16 @@ function ProductFormDialog({ product }: { product?: ProductRow }) {
                   </div>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Seller</Label>
-                <Select value={form.seller_id} onValueChange={v => setForm({ ...form, seller_id: v === 'none' ? '' : v })}>
-                  <SelectTrigger><SelectValue placeholder="Select seller" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No seller</SelectItem>
-                    {sellers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+                <div className="space-y-2">
+                  <Label>Store</Label>
+                  <Select value={form.seller_id} onValueChange={v => setForm({ ...form, seller_id: v === 'none' ? '' : v })}>
+                    <SelectTrigger><SelectValue placeholder="Select store" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No store</SelectItem>
+                      {stores.map(store => <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               <div className="space-y-2">
                 <Label>Collection</Label>
                 <Select value={form.collection_id || 'none'} onValueChange={v => setForm(prev => ({ ...prev, collection_id: v === 'none' ? '' : v }))}>
