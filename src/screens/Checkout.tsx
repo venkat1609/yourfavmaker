@@ -16,42 +16,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-declare global {
-  interface Window {
-    Razorpay: new (options: RazorpayOptions) => RazorpayInstance;
-  }
-}
-
-interface RazorpayResponse {
-  razorpay_order_id: string;
-  razorpay_payment_id: string;
-  razorpay_signature: string;
-}
-
-interface RazorpayOptions {
-  key: string;
-  amount: number;
-  currency: string;
-  name: string;
-  description: string;
-  order_id: string;
-  prefill: {
-    [key: string]: string;
-  };
-  theme: {
-    color: string;
-  };
-  handler: (response: RazorpayResponse) => void | Promise<void>;
-  modal: {
-    ondismiss: () => void;
-  };
-}
-
-interface RazorpayInstance {
-  on: (event: 'payment.failed', callback: (response: { error?: { description?: string } }) => void) => void;
-  open: () => void;
-}
-
 interface ShippingForm {
   fullName: string;
   phone: string;
@@ -69,21 +33,6 @@ const STEPS = [
   { id: 3, label: 'Payment', icon: CreditCard },
 ];
 
-function useRazorpayScript() {
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => {
-    if (document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')) {
-      setLoaded(true);
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.onload = () => setLoaded(true);
-    document.body.appendChild(script);
-  }, []);
-  return loaded;
-}
-
 interface SavedAddress {
   id: string;
   label: string;
@@ -100,7 +49,6 @@ export default function Checkout() {
   const { user } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const razorpayLoaded = useRazorpayScript();
 
   const [step, setStep] = useState(1);
   const [placing, setPlacing] = useState(false);
@@ -263,74 +211,55 @@ export default function Checkout() {
   };
 
   const handlePayment = async () => {
-    if (!user || items.length === 0 || !razorpayLoaded) return;
+    if (!user || items.length === 0) return;
     setPlacing(true);
     try {
       const shippingAddress = getShippingAddress();
-      const { data, error } = await supabase.functions.invoke('razorpay-order', {
-        body: {
-          action: 'create',
-          shipping_address: shippingAddress,
-        },
-      });
-
-      if (error || !data?.razorpay_order_id) {
-        throw new Error(error?.message || data?.error || 'Failed to create order');
-      }
-
-      const options = {
-        key: data.key_id,
-        amount: data.amount,
-        currency: data.currency,
-        name: 'YourFavMaker',
-        description: 'Order Payment',
-        order_id: data.razorpay_order_id,
-        prefill: {
-          ...data.prefill,
-          name: shipping.fullName,
-          contact: shipping.phone,
-        },
-        theme: { color: '#1a1a1a' },
-        handler: async (response: RazorpayResponse) => {
-          try {
-            const { data: verifyData, error: verifyError } = await supabase.functions.invoke('razorpay-order', {
-              body: {
-                action: 'verify',
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                order_id: data.order_id,
-              },
-            });
-
-            if (verifyError || !verifyData?.success) {
-              throw new Error('Payment verification failed');
-            }
-
-            queryClient.invalidateQueries({ queryKey: ['cart'] });
-            queryClient.invalidateQueries({ queryKey: ['orders'] });
-            toast.success('Payment successful! Order confirmed.');
-            router.push('/orders');
-          } catch (err: unknown) {
-            toast.error(err instanceof Error ? err.message : 'Payment verification failed');
-          }
-        },
-        modal: {
-          ondismiss: () => {
-            setPlacing(false);
-            toast.info('Payment cancelled');
-          },
-        },
+      const orderPayload = {
+        user_id: user.id,
+        total,
+        status: 'confirmed',
+        shipping_address: shippingAddress,
       };
 
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', (response) => {
-        toast.error(response.error?.description || 'Payment failed');
-        setPlacing(false);
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert(orderPayload)
+        .select('id')
+        .maybeSingle();
+
+      if (orderError || !orderData?.id) {
+        throw new Error(orderError?.message || 'Failed to create order');
+      }
+
+      const orderItemsPayload = items.map(item => {
+        const variant = item.variant;
+        const price = variant ? variant.price : item.product.price;
+        return {
+          order_id: orderData.id,
+          product_id: item.product_id,
+          variant_id: item.variant_id,
+          product_name: variant ? `${item.product.name} — ${variant.name}` : item.product.name,
+          price,
+          quantity: item.quantity,
+          variant_name: variant?.name || null,
+          variant_options: variant?.options || null,
+        };
       });
-      rzp.open();
+
+      const { error: orderItemsError } = await supabase.from('order_items').insert(orderItemsPayload);
+      if (orderItemsError) {
+        throw new Error(orderItemsError.message);
+      }
+
+      await supabase.from('cart_items').delete().eq('user_id', user.id);
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      toast.success('Payment successful! Order confirmed.');
+      router.push('/orders');
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to initiate payment');
+      toast.error(err instanceof Error ? err.message : 'Failed to process payment');
+    } finally {
       setPlacing(false);
     }
   };
@@ -691,8 +620,8 @@ export default function Checkout() {
             </div>
           </div>
 
-          <Button className="w-full" onClick={handlePayment} disabled={placing || !razorpayLoaded}>
-            {placing ? 'Processing...' : `Pay ₹${total.toFixed(2)} with Razorpay`}
+          <Button className="w-full" onClick={handlePayment} disabled={placing}>
+            {placing ? 'Processing...' : `Place Order - ₹${total.toFixed(2)}`}
           </Button>
         </div>
       )}

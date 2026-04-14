@@ -175,12 +175,6 @@ export default function PendingSellerApplicationsPage() {
 
   return (
     <div className="animate-fade-in space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-heading">Pending seller applications</h1>
-          <p className="text-sm text-muted-foreground">Review and approve storefront requests.</p>
-        </div>
-      </div>
 
       <div className="border rounded-sm bg-background/70 p-4 text-sm text-muted-foreground">
         {isLoading ? 'Loading …' : `${pendingStores.length} request${pendingStores.length === 1 ? '' : 's'} awaiting review`}

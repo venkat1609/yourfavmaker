@@ -37,16 +37,9 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const razorpayKeyId = Deno.env.get("RAZORPAY_KEY_ID");
     const razorpayKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET");
-
-    if (!razorpayKeyId || !razorpayKeySecret) {
-      return new Response(
-        JSON.stringify({ error: "Razorpay credentials not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
@@ -69,6 +62,18 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json() as { action?: string; shipping_address?: ShippingAddress } & Record<string, unknown>;
+
+    if (body.action === "mock") {
+      return await handleMockCreate(supabase, user, body.shipping_address ?? null);
+    }
+
+
+    if (!razorpayKeyId || !razorpayKeySecret) {
+      return new Response(
+        JSON.stringify({ error: "Razorpay credentials not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (body.action === "create") {
       return await handleCreate(supabase, user, razorpayKeyId, razorpayKeySecret, body.shipping_address ?? null);
@@ -212,6 +217,87 @@ async function handleCreate(
         contact: profile?.phone || "",
       },
     }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
+async function handleMockCreate(
+  supabase: SupabaseClient,
+  user: User,
+  shippingAddress: ShippingAddress,
+) {
+  const { data: cartItems, error: cartError } = await supabase
+    .from("cart_items")
+    .select("id, product_id, variant_id, quantity, products(id, name, price, image_url, stock)")
+    .eq("user_id", user.id);
+
+  if (cartError || !cartItems || cartItems.length === 0) {
+    return new Response(JSON.stringify({ error: "Cart is empty" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const cartRows = cartItems as unknown as CartItemRow[];
+  const variantIds = cartRows.flatMap(item => (item.variant_id ? [item.variant_id] : []));
+  const variantMap = new Map<string, VariantRow>();
+
+  if (variantIds.length > 0) {
+    const { data: variants } = await supabase
+      .from("product_variants")
+      .select("id, name, price, stock, options")
+      .in("id", variantIds);
+
+    (variants ?? []).forEach((variant) => {
+      variantMap.set(variant.id, variant as VariantRow);
+    });
+  }
+
+  let totalInr = 0;
+  const itemDetails = cartRows.map((item) => {
+    const variant = item.variant_id ? variantMap.get(item.variant_id) ?? null : null;
+    const price = variant ? variant.price : item.products.price;
+    totalInr += price * item.quantity;
+    return {
+      product_id: item.product_id,
+      variant_id: item.variant_id,
+      product_name: variant ? `${item.products.name} — ${variant.name}` : item.products.name,
+      price,
+      quantity: item.quantity,
+      variant_name: variant?.name || null,
+      variant_options: variant?.options || null,
+    };
+  });
+
+  const { data: order, error: orderError } = await supabase
+    .from("orders")
+    .insert({
+      user_id: user.id,
+      total: totalInr,
+      status: "confirmed",
+      shipping_address: shippingAddress,
+    })
+    .select()
+    .single();
+
+  if (orderError) {
+    return new Response(JSON.stringify({ error: orderError.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  await supabase.from("order_items").insert(
+    itemDetails.map((item) => ({
+      ...item,
+      order_id: order.id,
+    }))
+  );
+
+  await supabase.from("cart_items").delete().eq("user_id", user.id);
+
+  return new Response(
+    JSON.stringify({ success: true, order_id: order.id, total: totalInr }),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
 }

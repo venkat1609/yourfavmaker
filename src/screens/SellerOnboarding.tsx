@@ -98,6 +98,51 @@ export default function SellerOnboarding() {
         if (roleError) throw roleError;
       }
 
+      const { error: notificationError } = await supabase.from('notifications').insert({
+        user_id: user.id,
+        type: 'seller_application',
+        title: 'Seller Application Submitted',
+        body: `Your storefront ${form.name.trim()} is under review.`,
+        related_store_id: createdStore.id,
+        metadata: {
+          store_name: form.name.trim(),
+          status: 'pending',
+        },
+      });
+      if (notificationError) {
+        console.error('Failed to insert seller application notification', notificationError.message);
+      }
+
+      const { data: adminRoles, error: adminRolesError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'admin');
+      if (adminRolesError) {
+        console.error('Failed to load admin recipients for seller notification', adminRolesError.message);
+      } else {
+        const adminNotifications = (adminRoles ?? [])
+          .filter(({ user_id }) => !!user_id)
+          .map(({ user_id }) => ({
+            user_id,
+            type: 'seller_application',
+            title: 'New storefront application',
+            body: `${form.name.trim()} just applied for seller access`,
+            related_store_id: createdStore.id,
+            metadata: {
+              applicant_id: user.id,
+              store_name: form.name.trim(),
+              status: 'pending',
+            },
+          }));
+
+        if (adminNotifications.length > 0) {
+          const { error: adminInsertError } = await supabase.from('notifications').insert(adminNotifications);
+          if (adminInsertError) {
+            console.error('Failed to insert admin seller notifications', adminInsertError.message);
+          }
+        }
+      }
+
       setSubmitted(true);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to submit application';

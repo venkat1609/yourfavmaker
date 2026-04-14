@@ -1,4 +1,4 @@
-import { Package, ShoppingCart, Users, LayoutDashboard, ArrowLeft, FolderOpen, Tag, Store, Boxes, Clock } from 'lucide-react';
+import { Package, ShoppingCart, Users, LayoutDashboard, ArrowLeft, FolderOpen, Tag, Store, Clock } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import {
   Sidebar,
@@ -20,7 +20,6 @@ const dashboardItems = [
 
 const catalogItems = [
   { title: 'Products', url: '/admin/products', icon: Package },
-  { title: 'Inventory', url: '/admin/inventory', icon: Boxes },
   { title: 'Categories', url: '/admin/categories', icon: FolderOpen },
   { title: 'Tags', url: '/admin/tags', icon: Tag },
 ];

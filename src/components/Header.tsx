@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { Route } from 'next';
-import { ShoppingBag, User, Menu, X, LogOut, Shield, MapPin, Package, Pencil, ChevronRight, Store, Search } from 'lucide-react';
+import { ShoppingBag, User, Menu, X, LogOut, Shield, MapPin, Package, Pencil, ChevronRight, Store, Search, Bell, BellRing, Heart } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCart } from '@/hooks/useCart';
 import { Button } from '@/components/ui/button';
@@ -13,10 +13,13 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useRouter } from 'next/navigation';
+import { useNotificationCenter } from '@/hooks/useNotificationCenter';
+import { useWishlist } from '@/hooks/useWishlist';
 
 export default function Header() {
   const { user, isAdmin, signOut } = useAuth();
   const { itemCount } = useCart();
+  const { wishlist } = useWishlist();
   const [menuOpen, setMenuOpen] = useState(false);
   const [search, setSearch] = useState('');
   const router = useRouter();
@@ -50,6 +53,15 @@ export default function Header() {
         <div className="flex items-center gap-3">
           {user ? (
             <>
+              <NotificationMenu />
+              <Link href="/wishlist" className="relative p-2 hover:bg-secondary rounded-sm transition-colors">
+                <Heart className="h-5 w-5" />
+                {wishlist.length > 0 && (
+                  <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-accent text-accent-foreground text-xs flex items-center justify-center font-medium">
+                    {wishlist.length}
+                  </span>
+                )}
+              </Link>
               <Link href="/cart" className="relative p-2 hover:bg-secondary rounded-sm transition-colors">
                 <ShoppingBag className="h-5 w-5" />
                 {itemCount > 0 && (
@@ -82,6 +94,54 @@ export default function Header() {
         </div>
       )}
     </header>
+  );
+}
+
+function NotificationMenu() {
+  const { notifications, unreadCount, markAllRead, status } = useNotificationCenter();
+  const [open, setOpen] = useState(false);
+  const statusLabel =
+    status === 'open'
+      ? 'Live updates enabled'
+      : status === 'closed'
+        ? 'Live updates unavailable'
+        : 'Connecting...';
+
+  return (
+    <Popover open={open} onOpenChange={newState => {
+      setOpen(newState);
+      if (!newState) return;
+      markAllRead().catch(() => null);
+    }}>
+      <PopoverTrigger asChild>
+        <button className="relative p-2 hover:bg-secondary rounded-sm transition-colors">
+          {unreadCount > 0 ? <BellRing className="h-5 w-5" /> : <Bell className="h-5 w-5" />}
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-accent text-accent-foreground text-[10px] font-medium flex items-center justify-center">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-0" align="end" sideOffset={8}>
+        <div className="p-4 border-b">
+          <p className="text-sm font-semibold">Notifications</p>
+          <p className="text-xs text-muted-foreground">{statusLabel}</p>
+        </div>
+        <div className="max-h-80 overflow-y-auto">
+          {notifications.length === 0 && (
+            <p className="p-4 text-xs text-muted-foreground">No notifications yet</p>
+          )}
+          {notifications.map(notification => (
+            <div key={notification.id} className="border-b last:border-b-0 px-4 py-3 bg-muted/10">
+              <p className="text-xs font-semibold text-foreground">{notification.title}</p>
+              <p className="text-xs text-muted-foreground truncate">{notification.body}</p>
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{notification.type.replace('_', ' ')}</p>
+            </div>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

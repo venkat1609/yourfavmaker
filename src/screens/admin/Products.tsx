@@ -21,17 +21,16 @@ import type { Database } from '@/integrations/supabase/types';
 import type { ProductImageItem } from '@/lib/productImages';
 import { createProductImageItemsFromFiles, reorderProductImageItems, revokeProductImageItems, resolveProductImageUrls } from '@/lib/productImages';
 import { cn } from '@/lib/utils';
+import { AdminMasterTable } from '@/components/AdminMasterTable';
 
 type ProductRow = Database['public']['Tables']['products']['Row'];
 
 export default function Products() {
   const queryClient = useQueryClient();
-  const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterTag, setFilterTag] = useState('all');
   const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all');
-  const ITEMS_PER_PAGE = 10;
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['admin-products'],
@@ -45,6 +44,36 @@ export default function Products() {
   const { data: categories = [] } = useCategories();
   const { data: tags = [] } = useTags();
 
+  const filtered = useMemo(() => {
+    const searchQuery = search.trim().toLowerCase();
+    const normalizedCategory = filterCategory.toLowerCase();
+    const normalizedTag = filterTag.toLowerCase();
+    return products.filter((product) => {
+      if (filterCategory !== 'all' && (product.category || '').toLowerCase() !== normalizedCategory) {
+        return false;
+      }
+      if (filterTag !== 'all') {
+        const productTags = (product.tags as string[]) || [];
+        if (!productTags.some((tag) => tag.toLowerCase() === normalizedTag)) {
+          return false;
+        }
+      }
+      if (filterActive !== 'all') {
+        const shouldBeActive = filterActive === 'active';
+        if (product.is_active !== shouldBeActive) {
+          return false;
+        }
+      }
+      if (searchQuery) {
+        const haystack = `${product.name} ${product.description || ''} ${product.category || ''}`.toLowerCase();
+        if (!haystack.includes(searchQuery)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [products, search, filterCategory, filterTag, filterActive]);
+
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
       const { error } = await supabase.from('products').update({ is_active }).eq('id', id);
@@ -53,28 +82,88 @@ export default function Products() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-products'] }),
   });
 
-  const filtered = useMemo(() => {
-    let result = [...products];
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter(p => p.name.toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q));
-    }
-    if (filterCategory !== 'all') result = result.filter(p => p.category === filterCategory);
-    if (filterTag !== 'all') result = result.filter(p => (p.tags as string[] | undefined)?.includes(filterTag));
-    if (filterActive === 'active') result = result.filter(p => p.is_active);
-    if (filterActive === 'inactive') result = result.filter(p => !p.is_active);
-    return result;
-  }, [products, search, filterCategory, filterTag, filterActive]);
-
-  useEffect(() => { setPage(1); }, [search, filterCategory, filterTag, filterActive]);
-
-  const { totalPages, getPageItems } = usePagination(filtered, ITEMS_PER_PAGE);
-  const pageProducts = getPageItems(page);
+  const columns = useMemo(() => [
+    {
+      id: 'product',
+      header: 'Product',
+      accessor: (product: ProductRow) => (
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 bg-secondary rounded-sm overflow-hidden flex-shrink-0">
+            {product.image_url && <img src={product.image_url} alt="" className="h-full w-full object-cover" />}
+          </div>
+          <span className="font-medium">{product.name}</span>
+      </div>
+      ),
+      filterFn: (product: ProductRow, query: string) => {
+        const q = query.toLowerCase();
+        return (
+          product.name.toLowerCase().includes(q) ||
+          (product.description || '').toLowerCase().includes(q)
+        );
+      },
+      width: '300px',
+      sortable: true,
+      sortAccessor: (product: ProductRow) => product.name.toLowerCase(),
+    },
+    {
+      id: 'category',
+      header: 'Category',
+      accessor: (product: ProductRow) => product.category || '-',
+      filterFn: (product: ProductRow, query: string) => (product.category || '').toLowerCase().includes(query),
+      sortable: true,
+      sortAccessor: (product: ProductRow) => product.category || '',
+    },
+    {
+      id: 'tags',
+      header: 'Tags',
+      accessor: (product: ProductRow) => (
+        <div className="flex flex-wrap gap-1">
+          {((product.tags as string[]) || []).map(tag => (
+            <Badge key={tag} variant="outline" className="text-[10px] py-0">{tag}</Badge>
+          ))}
+        </div>
+      ),
+      filterFn: (product: ProductRow, query: string) =>
+        ((product.tags as string[]) || []).some(tag => tag.toLowerCase().includes(query)),
+      sortable: true,
+      sortAccessor: (product: ProductRow) => ((product.tags as string[]) || []).join(',').toLowerCase(),
+    },
+    {
+      id: 'price',
+      header: 'Price',
+      accessor: (product: ProductRow) => `₹${Number(product.price).toFixed(2)}`,
+      align: 'right',
+      sortAccessor: (product: ProductRow) => Number(product.price),
+    },
+    {
+      id: 'active',
+      header: 'Active',
+      accessor: (product: ProductRow) => (
+        <Switch
+          checked={product.is_active}
+          onCheckedChange={v => toggleActive.mutate({ id: product.id, is_active: v })}
+        />
+      ),
+      filterable: false,
+      align: 'center',
+      width: '120px',
+      sortable: true,
+      sortAccessor: (product: ProductRow) => (product.is_active ? 1 : 0),
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      accessor: (product: ProductRow) => <ProductFormDialog product={product} />,
+      filterable: false,
+      align: 'right',
+      width: '120px',
+      sortable: false,
+    },
+  ], [toggleActive]);
 
   return (
     <div className="animate-fade-in">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-heading">Products</h1>
+      <div className="flex justify-end mb-6">
         <ProductFormDialog />
       </div>
 
@@ -107,44 +196,15 @@ export default function Products() {
         </Select>
       </div>
 
-      <p className="text-xs text-muted-foreground mb-4">{filtered.length} product{filtered.length !== 1 ? 's' : ''}</p>
-
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-16 bg-secondary rounded-sm animate-pulse" />)}</div>
       ) : (
-        <>
-          <div className="border rounded-sm overflow-hidden">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b bg-muted/50"><th className="text-left p-3 font-medium">Product</th><th className="text-left p-3 font-medium hidden md:table-cell">Category</th><th className="text-left p-3 font-medium hidden lg:table-cell">Tags</th><th className="text-right p-3 font-medium">Price</th><th className="text-center p-3 font-medium">Active</th><th className="p-3"></th></tr></thead>
-              <tbody>
-                {pageProducts.map(p => (
-                  <tr key={p.id} className="border-b last:border-0">
-                    <td className="p-3">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 bg-secondary rounded-sm overflow-hidden flex-shrink-0">
-                          {p.image_url && <img src={p.image_url} alt="" className="h-full w-full object-cover" />}
-                        </div>
-                        <span className="font-medium">{p.name}</span>
-                      </div>
-                    </td>
-                    <td className="p-3 hidden md:table-cell text-muted-foreground">{p.category || '-'}</td>
-                    <td className="p-3 hidden lg:table-cell">
-                      <div className="flex flex-wrap gap-1">
-                        {((p.tags as string[]) || []).map(t => (
-                          <Badge key={t} variant="outline" className="text-[10px] py-0">{t}</Badge>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="p-3 text-right">₹{Number(p.price).toFixed(2)}</td>
-                    <td className="p-3 text-center"><Switch checked={p.is_active} onCheckedChange={v => toggleActive.mutate({ id: p.id, is_active: v })} /></td>
-                    <td className="p-3"><ProductFormDialog product={p} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <PaginationControls currentPage={page} totalPages={totalPages} onPageChange={setPage} className="mt-6" />
-        </>
+        <AdminMasterTable
+          columns={columns}
+          data={filtered}
+          rowKey={(product) => product.id}
+          options={{ pageSize: 10, pageSizeOptions: [10, 20, 50] }}
+        />
       )}
     </div>
   );

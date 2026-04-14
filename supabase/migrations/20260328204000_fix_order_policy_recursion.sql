@@ -23,10 +23,10 @@ AS $$
   SELECT EXISTS (
     SELECT 1
     FROM public.products p
-    JOIN public.sellers s ON s.id = p.seller_id
+    JOIN public.stores st ON st.id = p.seller_id
     WHERE p.id = _product_id
-      AND s.user_id = auth.uid()
-      AND s.status = 'approved'
+      AND st.user_id = auth.uid()
+      AND st.status = 'approved'
   );
 $$;
 
@@ -37,14 +37,15 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
+  SET LOCAL row_security = off;
   SELECT EXISTS (
     SELECT 1
     FROM public.order_items oi
     JOIN public.products p ON p.id = oi.product_id
-    JOIN public.sellers s ON s.id = p.seller_id
+    JOIN public.stores st ON st.id = p.seller_id
     WHERE oi.order_id = _order_id
-      AND s.user_id = auth.uid()
-      AND s.status = 'approved'
+      AND st.user_id = auth.uid()
+      AND st.status = 'approved'
   );
 $$;
 

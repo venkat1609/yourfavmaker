@@ -452,7 +452,7 @@ export default function Shop() {
             <>
               <div className={`grid gap-6 ${sidebarOpen && !isMobile ? 'grid-cols-2 lg:grid-cols-3' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'}`}>
                 {paginatedProducts.map(product => (
-                  <ProductCard key={product.id} product={product} />
+                  <ProductCard key={product.id} product={product} showAddToCart />
                 ))}
               </div>
               <PaginationControls

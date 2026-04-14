@@ -14,17 +14,21 @@ export default function AdminLayout({ children }: { children?: React.ReactNode }
   const sectionTitle = (() => {
     switch (pathname) {
       case '/admin':
-        return 'Dashboard';
+        return 'Admin Dashboard';
       case '/admin/products':
-      case '/admin/inventory':
+        return 'Products';
       case '/admin/categories':
+        return 'Categories';
       case '/admin/tags':
-        return pathname === '/admin/inventory' ? 'Inventory' : 'Catalog';
+        return 'Tags';
       case '/admin/orders':
-        return 'Sales';
+        return 'Orders';
       case '/admin/customers':
+        return 'Customers';
       case '/admin/sellers':
-        return 'People';
+        return 'Sellers';
+      case '/admin/pending-applications':
+        return 'Pending approvals';
       default:
         return 'Admin Dashboard';
     }
@@ -53,7 +57,7 @@ export default function AdminLayout({ children }: { children?: React.ReactNode }
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-12 flex items-center border-b px-4 gap-3">
             <SidebarTrigger />
-            <span className="text-sm font-medium text-muted-foreground">{sectionTitle}</span>
+            <span className="text-base font-semibold text-foreground">{sectionTitle}</span>
           </header>
           <main className="flex-1 p-6 md:p-8 overflow-auto">
             {children}

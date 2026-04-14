@@ -8,13 +8,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { Minus, Plus, ArrowLeft } from 'lucide-react';
+import { Minus, Plus, ArrowLeft, Heart } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import SellerCard from '@/components/SellerCard';
 import ProductCard from '@/components/ProductCard';
 import type { Database } from '@/integrations/supabase/types';
 import type { Tables } from '@/integrations/supabase/types';
+import { useWishlist } from '@/hooks/useWishlist';
 
 type ProductRow = Database['public']['Tables']['products']['Row'];
 type SuggestedProduct = Tables<'products'>;
@@ -39,6 +40,7 @@ export default function ProductDetail() {
     enabled: !!id,
   });
 
+  const { isInWishlist, addToWishlist, removeFromWishlist, isUpdating: wishlistLoading } = useWishlist();
   const { data: attributes = [] } = useQuery({
     queryKey: ['product-attributes', id],
     queryFn: async () => {
@@ -171,6 +173,8 @@ export default function ProductDetail() {
     );
   }
 
+  const isWishlisted = product ? isInWishlist(product.id) : false;
+
   if (!product) {
     return (
       <div className="container py-20 text-center">
@@ -178,6 +182,20 @@ export default function ProductDetail() {
       </div>
     );
   }
+
+  const handleWishlistToggle = () => {
+    if (!user) {
+      toast.error('Please sign in to save favorites');
+      router.push('/auth');
+      return;
+    }
+    if (!product) return;
+    if (isWishlisted) {
+      removeFromWishlist(product.id);
+    } else {
+      addToWishlist(product.id);
+    }
+  };
 
   const handleAddToCart = () => {
     if (!user) {
@@ -303,7 +321,7 @@ export default function ProductDetail() {
             </div>
           )}
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center border rounded-sm">
               <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="p-2 hover:bg-secondary transition-colors">
                 <Minus className="h-4 w-4" />
@@ -313,9 +331,20 @@ export default function ProductDetail() {
                 <Plus className="h-4 w-4" />
               </button>
             </div>
-            <Button onClick={handleAddToCart} className="flex-1" disabled={displayStock === 0 || (hasVariants && !selectedVariant)}>
-              {displayStock === 0 ? 'Out of Stock' : 'Add to Cart'}
-            </Button>
+            <div className="flex flex-1 min-w-[220px] items-center gap-3">
+              <Button onClick={handleAddToCart} className="flex-1" disabled={displayStock === 0 || (hasVariants && !selectedVariant)}>
+                {displayStock === 0 ? 'Out of Stock' : 'Add to Cart'}
+              </Button>
+              <Button
+                variant={isWishlisted ? 'secondary' : 'outline'}
+                className="flex items-center gap-2 whitespace-nowrap"
+                onClick={handleWishlistToggle}
+                disabled={wishlistLoading}
+              >
+                <Heart className={`h-4 w-4 ${isWishlisted ? 'text-destructive' : ''}`} />
+                {isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+              </Button>
+            </div>
           </div>
 
           <p className="text-xs text-muted-foreground">

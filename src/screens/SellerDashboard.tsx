@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import {
   Plus,
@@ -27,6 +28,8 @@ import {
   GripVertical,
   Eye,
   EyeOff,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
 import { useCategories, useTags } from '@/hooks/useAdminData';
@@ -40,6 +43,8 @@ import { SellerCollectionsManager, type SellerCollectionsManagerHandle } from '@
 import type { ProductImageItem } from '@/lib/productImages';
 import { createProductImageItemsFromFiles, reorderProductImageItems, revokeProductImageItems, resolveProductImageUrls } from '@/lib/productImages';
 import { cn } from '@/lib/utils';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { AdminMasterTable } from '@/components/AdminMasterTable';
 
 type StoreRow = Database['public']['Tables']['stores']['Row'];
 type ProductRow = Database['public']['Tables']['products']['Row'];
@@ -88,6 +93,74 @@ type SellerPaymentsFormState = {
   bank_ifsc: string;
   tax_id: string;
 };
+
+const subscriptionPlans = {
+  starter: {
+    name: 'Starter',
+    limit: 10,
+    description: 'Default free tier for sellers without an active subscription',
+    badge: 'Free',
+  },
+  growth: {
+    name: 'Growth',
+    limit: 100,
+    description: 'Growth tier that unlocks more catalog space and priority support',
+    badge: 'Growth',
+  },
+  pro: {
+    name: 'Pro',
+    limit: Number.POSITIVE_INFINITY,
+    description: 'Unlimited catalog access for high-volume sellers',
+    badge: 'Pro',
+  },
+} as const;
+type SubscriptionPlanKey = keyof typeof subscriptionPlans;
+
+const planKeyMap: Record<string, SubscriptionPlanKey> = {
+  free: 'starter',
+  starter: 'starter',
+  growth: 'growth',
+  pro: 'pro',
+};
+
+const sellerTabContent = {
+  overview: {
+    title: 'Store Dashboard',
+    description: 'Combined snapshot of your store performance, operations, and activity.',
+  },
+  inventory: {
+    title: 'Inventory',
+    description: 'Manage stock for products and variants separately from product details.',
+  },
+  collections: {
+    title: 'Collections',
+    description: 'Organize products into internal collections used only for store management.',
+  },
+  products: {
+    title: 'Products',
+    description: 'Create, search, reorder, and update products for this storefront.',
+  },
+  orders: {
+    title: 'Orders',
+    description: 'Track recent sales and fulfillment activity for this storefront.',
+  },
+  inquiries: {
+    title: 'Inquiries',
+    description: 'Messages from shoppers will appear here once the inbox is connected.',
+  },
+  settings: {
+    title: 'Store Settings',
+    description: 'Update the store identity, contact details, and address details.',
+  },
+  earnings: {
+    title: 'Earnings',
+    description: 'Review sales, payouts, and order performance for this storefront.',
+  },
+  payments: {
+    title: 'Payments',
+    description: 'Review bank and payout details for this storefront.',
+  },
+} as const;
 
 async function fetchSellerDashboardStats(storeIds: string[]): Promise<SellerStoreStats> {
   if (storeIds.length === 0) {
@@ -290,6 +363,7 @@ function SellerStoreDashboard({ seller, stores, activeSection }: { seller: Store
   const collectionsManagerRef = useRef<SellerCollectionsManagerHandle>(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [productViewMode, setProductViewMode] = useState<'card' | 'table'>('card');
   const [isInsideCollectionView, setIsInsideCollectionView] = useState(false);
   const [paymentHistoryOpen, setPaymentHistoryOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<ProductRow | null>(null);
@@ -346,18 +420,84 @@ function SellerStoreDashboard({ seller, stores, activeSection }: { seller: Store
   const { totalPages, getPageItems } = usePagination(filtered, ITEMS_PER_PAGE);
   const pageProducts = getPageItems(page);
 
+  const tableColumns = useMemo(
+    () => [
+      {
+        id: 'product',
+        header: 'Product',
+        accessor: (row: ProductRow) => (
+          <div className="space-y-0.5">
+            <p className="font-medium leading-tight">{row.name}</p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">{row.category || 'Uncategorized'}</p>
+          </div>
+        ),
+        sortable: true,
+        sortAccessor: row => row.name,
+      },
+      {
+        id: 'price',
+        header: 'Price',
+        accessor: row => '₹' + Number(row.price).toFixed(2),
+        align: 'right',
+        sortable: true,
+        sortAccessor: row => Number(row.price),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        accessor: row => (
+          <span
+            className={cn(
+              'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold uppercase tracking-wide',
+              row.is_active ? 'border-success/40 text-success' : 'border-muted-foreground/60 text-muted-foreground',
+            )}
+          >
+            {row.is_active ? 'Active' : 'Inactive'}
+          </span>
+        ),
+        align: 'center',
+        sortable: true,
+        sortAccessor: row => (row.is_active ? 1 : 0),
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        accessor: row => (
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn('h-8 w-8 bg-transparent hover:bg-transparent', row.is_active ? 'text-success' : 'text-muted-foreground')}
+              onClick={() => toggleActive.mutate({ id: row.id, is_active: !row.is_active })}
+              title={row.is_active ? 'Mark inactive' : 'Mark active'}
+            >
+              {row.is_active ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            </Button>
+            <SellerProductFormDialog sellerId={seller.id} product={row} />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 bg-transparent hover:bg-transparent text-destructive"
+              onClick={() => setProductToDelete(row)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ),
+        align: 'right',
+        sortable: false,
+        filterable: false,
+      },
+    ],
+    [seller.id, toggleActive],
+  );
+
   const { data: stats } = useQuery({
     queryKey: ['seller-dashboard-stats', seller.id],
     enabled: isApproved,
     queryFn: async () => fetchSellerDashboardStats([seller.id]),
   });
-
-  const metricCards = [
-    { label: 'Active Products', value: stats?.activeProductCount ?? '—' },
-    { label: 'Active Orders', value: stats?.orderCount ?? '—' },
-    { label: 'Units Sold', value: stats?.unitsSold ?? '—' },
-    { label: 'Sales', value: stats ? `₹${stats.revenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—' },
-  ];
 
   const tabContent = {
     overview: {
@@ -399,6 +539,7 @@ function SellerStoreDashboard({ seller, stores, activeSection }: { seller: Store
   } as const;
 
   const currentTab = tabContent[activeSection as keyof typeof tabContent] || tabContent.overview;
+  const headerTitle = seller.status === 'approved' ? currentTab.title : 'Seller Dashboard';
 
   return (
     <SidebarProvider>
@@ -407,9 +548,7 @@ function SellerStoreDashboard({ seller, stores, activeSection }: { seller: Store
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-12 flex items-center border-b px-4 gap-3">
             <SidebarTrigger />
-            <span className="text-sm font-medium text-muted-foreground">
-              {seller.status === 'approved' ? currentTab.title : seller.status}
-            </span>
+            <span className="text-base font-semibold text-foreground">{headerTitle}</span>
           </header>
           <main className="flex-1 p-6 md:p-8 overflow-auto">
             <div className="animate-fade-in">
@@ -418,27 +557,19 @@ function SellerStoreDashboard({ seller, stores, activeSection }: { seller: Store
                   <SellerStoreSettingsForm seller={seller} />
                 </section>
               ) : isApproved ? (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
-                    <div className="min-w-0 space-y-1">
-                      <h1 className="text-2xl font-heading">{currentTab.title}</h1>
-                      <p className="text-sm text-muted-foreground">{currentTab.description}</p>
-                    </div>
-                    <div className="flex min-w-[11rem] justify-end">
-                      {activeSection === 'products' ? (
-                        <SellerProductFormDialog sellerId={seller.id} />
-                      ) : activeSection === 'collections' && !isInsideCollectionView ? (
-                        <Button size="sm" onClick={() => collectionsManagerRef.current?.openCreateCollection()}>
-                          <Plus className="h-4 w-4 mr-1" /> New Collection
-                        </Button>
-                      ) : activeSection === 'payments' ? (
-                        <Button size="sm" variant="outline" onClick={() => setPaymentHistoryOpen(true)}>
-                          View History
-                        </Button>
-                      ) : (
-                        <div className="h-9 w-[11rem]" aria-hidden="true" />
-                      )}
-                    </div>
+                <>
+                  <div className="flex justify-end">
+                    {activeSection === 'products' ? (
+                      <SellerProductFormDialog sellerId={seller.id} />
+                    ) : activeSection === 'collections' && !isInsideCollectionView ? (
+                      <Button size="sm" onClick={() => collectionsManagerRef.current?.openCreateCollection()}>
+                        <Plus className="h-4 w-4 mr-1" /> New Collection
+                      </Button>
+                    ) : activeSection === 'payments' ? (
+                      <Button size="sm" variant="outline" onClick={() => setPaymentHistoryOpen(true)}>
+                        View History
+                      </Button>
+                    ) : null}
                   </div>
 
                   {activeSection === 'overview' && (
@@ -452,7 +583,7 @@ function SellerStoreDashboard({ seller, stores, activeSection }: { seller: Store
                         ))}
                       </div>
 
-                      <div className="grid lg:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                         <div className="border rounded-sm p-5 space-y-4">
                           <p className="text-xs uppercase tracking-wider text-muted-foreground">Store Details</p>
                           <div className="space-y-3 text-sm">
@@ -462,12 +593,15 @@ function SellerStoreDashboard({ seller, stores, activeSection }: { seller: Store
                             </div>
                             <div className="flex items-center justify-between gap-3">
                               <span className="text-muted-foreground">Status</span>
-                              <Badge variant="outline" className={cn(
-                                'capitalize',
-                                seller.status === 'approved' && 'border-success/30 text-success',
-                                seller.status === 'pending' && 'border-accent/30 text-accent',
-                                seller.status === 'rejected' && 'border-destructive/30 text-destructive',
-                              )}>
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  'capitalize',
+                                  seller.status === 'approved' && 'border-success/30 text-success',
+                                  seller.status === 'pending' && 'border-accent/30 text-accent',
+                                  seller.status === 'rejected' && 'border-destructive/30 text-destructive'
+                                )}
+                              >
                                 {seller.status}
                               </Badge>
                             </div>
@@ -488,6 +622,14 @@ function SellerStoreDashboard({ seller, stores, activeSection }: { seller: Store
                               <span className="text-muted-foreground">Units Sold</span>
                               <span className="font-medium text-right">{stats?.unitsSold ?? '—'}</span>
                             </div>
+                          </div>
+                        </div>
+                        <div className="border rounded-sm p-5 space-y-4">
+                          <p className="text-xs uppercase tracking-wider text-muted-foreground">Store Location</p>
+                          <div className="space-y-2 text-sm">
+                            <p className="font-medium">{seller.location || 'Location not provided'}</p>
+                            <p className="text-muted-foreground">GSTIN: {seller.business_registration_number || '—'}</p>
+                            <p className="text-muted-foreground">PAN: {seller.pan || '—'}</p>
                           </div>
                         </div>
                       </div>
@@ -512,11 +654,26 @@ function SellerStoreDashboard({ seller, stores, activeSection }: { seller: Store
 
                   {activeSection === 'products' && (
                     <section className="space-y-6">
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="relative flex-1 max-w-sm">
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                           <Input placeholder="Search your products..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
                         </div>
+                        <ToggleGroup
+                          type="single"
+                          size="sm"
+                          value={productViewMode}
+                          onValueChange={(value) => value && setProductViewMode(value as 'card' | 'table')}
+                          className="border border-input rounded-full bg-background/60 px-1 py-0.5"
+                          aria-label="Product view mode"
+                        >
+                          <ToggleGroupItem value="card" aria-label="Card view">
+                            <LayoutGrid className="h-4 w-4" />
+                          </ToggleGroupItem>
+                          <ToggleGroupItem value="table" aria-label="Table view">
+                            <List className="h-4 w-4" />
+                          </ToggleGroupItem>
+                        </ToggleGroup>
                       </div>
 
                       {isLoading ? (
@@ -527,7 +684,7 @@ function SellerStoreDashboard({ seller, stores, activeSection }: { seller: Store
                           <p className="text-muted-foreground mb-4">You haven't added any products yet.</p>
                           <SellerProductFormDialog sellerId={seller.id} />
                         </div>
-                      ) : (
+                      ) : productViewMode === 'card' ? (
                         <>
                           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
                             {pageProducts.map(p => (
@@ -569,7 +726,22 @@ function SellerStoreDashboard({ seller, stores, activeSection }: { seller: Store
                             ))}
                           </div>
                           <PaginationControls currentPage={page} totalPages={totalPages} onPageChange={setPage} className="mt-6" />
-                          </>
+                        </>
+                      ) : (
+                        <AdminMasterTable
+                          columns={tableColumns}
+                          data={filtered}
+                          rowKey={(product) => product.id}
+                          className="overflow-hidden rounded-sm border bg-background"
+                          options={{
+                            showFilters: false,
+                            showSelection: false,
+                            showSorting: true,
+                            showPagination: true,
+                            multiSort: true,
+                          }}
+                          pageSize={ITEMS_PER_PAGE}
+                        />
                       )}
                     </section>
                   )}
@@ -695,7 +867,7 @@ function SellerStoreDashboard({ seller, stores, activeSection }: { seller: Store
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
-                </div>
+                </>
               ) : (
                 <div className="max-w-lg border rounded-sm p-8">
                   {seller.status === 'pending' ? (
@@ -1000,6 +1172,28 @@ function SellerOverviewDashboard({ stores }: { stores: StoreRow[] }) {
     enabled: storeIds.length > 0,
     queryFn: async () => fetchSellerDashboardStats(storeIds),
   });
+  const { user } = useAuth();
+  const { data: sellerProfile } = useQuery({
+    queryKey: ['seller-profile', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('sellers').select('plan').eq('user_id', user?.id).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const sellerPlanName = sellerProfile?.plan ?? 'free';
+  const sellerPlanKey = planKeyMap[sellerPlanName] ?? 'starter';
+  const sellerPlan = subscriptionPlans[sellerPlanKey];
+  const overviewUsage = stats?.productCount ?? 0;
+  const overviewPlanLimit = sellerPlan.limit;
+  const overviewUsageLabel = Number.isFinite(overviewPlanLimit)
+    ? `${overviewUsage} / ${overviewPlanLimit}`
+    : `${overviewUsage} / Unlimited`;
+  const overviewUsageProgress = Number.isFinite(overviewPlanLimit)
+    ? Math.min(100, (overviewUsage / overviewPlanLimit) * 100)
+    : 100;
 
   const metricCards = [
     {
@@ -1042,6 +1236,55 @@ function SellerOverviewDashboard({ stores }: { stores: StoreRow[] }) {
                       <p className="text-2xl font-heading">{card.value}</p>
                     </div>
                   ))}
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 mb-8">
+                  <div className="border rounded-sm p-5 space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-wider text-muted-foreground">Seller Plan</p>
+                        <p className="text-xl font-semibold">{sellerPlan.name}</p>
+                      </div>
+                      <Badge variant="outline" className="capitalize">
+                        {sellerPlan.badge}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {sellerPlanName === 'free'
+                        ? 'Your seller account currently runs on the Starter tier with the default allowance.'
+                        : 'This seller account is subscribed to the selected tier and enjoys the associated benefits.'}
+                    </p>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Usage</span>
+                        <span className="font-medium">{overviewUsageLabel}</span>
+                      </div>
+                      <Progress value={overviewUsageProgress} className="h-2" />
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Starter – 10 products · Growth – 100 products · Pro – Unlimited
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">{sellerPlan.description}</p>
+                    </div>
+                    <Button size="sm" className="w-full" variant="outline" asChild>
+                      <Link href="/seller/plans">View plans</Link>
+                    </Button>
+                  </div>
+                  <div className="border rounded-sm p-5 space-y-3">
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground">Plan Details</p>
+                    <ul className="space-y-2 text-sm">
+                      {Object.entries(subscriptionPlans).map(([key, plan]) => (
+                        <li key={key} className="flex items-center justify-between">
+                          <span className="font-medium capitalize">{plan.name}</span>
+                          <span className="text-muted-foreground">
+                            {Number.isFinite(plan.limit) ? `${plan.limit} products` : 'Unlimited'}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-[12px] text-muted-foreground">
+                      Plan assignments happen at the seller account level, so all storefronts share the same allowance.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="grid lg:grid-cols-2 gap-4">

@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Search, Package, Pencil } from 'lucide-react';
+import { AdminMasterTable } from '@/components/AdminMasterTable';
 import { toast } from 'sonner';
 import { useStores } from '@/hooks/useAdminData';
 import type { Database } from '@/integrations/supabase/types';
@@ -85,13 +86,123 @@ export function InventoryManager({
     enabled: productIds.length > 0,
   });
 
-  const variantsByProduct = useMemo(() => {
-    return variants.reduce<Record<string, VariantRow[]>>((acc, variant) => {
-      if (!acc[variant.product_id]) acc[variant.product_id] = [];
-      acc[variant.product_id].push(variant);
-      return acc;
-    }, {});
-  }, [variants]);
+const variantsByProduct = useMemo(() => {
+  return variants.reduce<Record<string, VariantRow[]>>((acc, variant) => {
+    if (!acc[variant.product_id]) acc[variant.product_id] = [];
+    acc[variant.product_id].push(variant);
+    return acc;
+  }, {});
+}, [variants]);
+
+const inventoryColumns = useMemo(() => {
+  const baseColumns = [
+    {
+      id: 'product',
+      header: 'Product',
+      accessor: (product: ProductRow) => {
+        const variantCount = variantsByProduct[product.id]?.length || 0;
+        return (
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-sm bg-secondary overflow-hidden flex-shrink-0">
+              {product.image_url ? <img src={product.image_url} alt="" className="h-full w-full object-cover" /> : null}
+            </div>
+            <div className="min-w-0">
+              <p className="font-medium truncate">{product.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {variantCount > 0 ? `${variantCount} variant${variantCount === 1 ? '' : 's'}` : 'No variants'}
+              </p>
+            </div>
+          </div>
+        );
+      },
+      filterFn: (product: ProductRow, query: string) => product.name.toLowerCase().includes(query),
+      width: '320px',
+      sortable: true,
+      sortAccessor: (product: ProductRow) => product.name.toLowerCase(),
+    },
+    {
+      id: 'category',
+      header: 'Category',
+      accessor: (product: ProductRow) => product.category || '-',
+      filterFn: (product: ProductRow, query: string) => (product.category || '').toLowerCase().includes(query),
+      align: 'left',
+      sortable: true,
+      sortAccessor: (product: ProductRow) => (product.category || '').toLowerCase(),
+    },
+    {
+      id: 'stock',
+      header: 'Stock',
+      accessor: (product: ProductRow) => product.stock,
+      align: 'right',
+      sortAccessor: (product: ProductRow) => product.stock ?? 0,
+      sortable: true,
+    },
+    {
+      id: 'active',
+      header: 'Active',
+      accessor: (product: ProductRow) => (
+        <Badge
+          variant="outline"
+          className={cn(
+            'capitalize',
+            product.is_active && 'border-success/30 text-success',
+            !product.is_active && 'border-muted-foreground/30 text-muted-foreground',
+          )}
+        >
+          {product.is_active ? 'Active' : 'Inactive'}
+        </Badge>
+      ),
+      filterable: false,
+      align: 'center',
+      width: '120px',
+      sortable: true,
+      sortAccessor: (product: ProductRow) => (product.is_active ? 1 : 0),
+    },
+  ];
+
+  if (scope === 'admin') {
+    baseColumns.splice(1, 0, {
+      id: 'seller',
+      header: 'Seller',
+      accessor: (product: ProductRow) => {
+        const seller = product.seller_id ? storeMap.get(product.seller_id) : null;
+        return seller?.name || '-';
+      },
+      filterFn: (product: ProductRow, query: string) => {
+        const seller = product.seller_id ? storeMap.get(product.seller_id) : null;
+        return (seller?.name || '-').toLowerCase().includes(query);
+      },
+      width: '200px',
+      align: 'left',
+      sortable: true,
+      sortAccessor: (product: ProductRow) => (product.seller_id ? storeMap.get(product.seller_id)?.name?.toLowerCase() || '-' : '-'),
+    });
+  }
+
+  baseColumns.push({
+    id: 'actions',
+    header: 'Actions',
+    accessor: (product: ProductRow) => (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8"
+        onClick={() => {
+          setSelectedProductId(product.id);
+          setOpen(true);
+        }}
+      >
+        <Pencil className="h-4 w-4" />
+      </Button>
+    ),
+    filterable: false,
+    align: 'right',
+    width: '120px',
+    sortable: false,
+  });
+
+  return baseColumns;
+}, [scope, storeMap, variantsByProduct]);
 
   const filteredProducts = useMemo(() => {
     if (!search.trim()) return products;
@@ -192,73 +303,12 @@ export function InventoryManager({
           <p className="text-sm text-muted-foreground">No inventory items match your search.</p>
         </div>
       ) : (
-        <div className="border rounded-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="text-left p-3 font-medium">Product</th>
-                {scope === 'admin' && <th className="text-left p-3 font-medium hidden md:table-cell">Seller</th>}
-                <th className="text-left p-3 font-medium hidden md:table-cell">Category</th>
-                <th className="text-right p-3 font-medium">Stock</th>
-                <th className="text-center p-3 font-medium">Active</th>
-                <th className="p-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProducts.map(product => {
-                const seller = product.seller_id ? storeMap.get(product.seller_id) : null;
-                const variantCount = variantsByProduct[product.id]?.length || 0;
-                return (
-                  <tr key={product.id} className="border-b last:border-0">
-                    <td className="p-3">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-sm bg-secondary overflow-hidden flex-shrink-0">
-                          {product.image_url ? <img src={product.image_url} alt="" className="h-full w-full object-cover" /> : null}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{product.name}</p>
-                          <p className="text-xs text-muted-foreground">{variantCount > 0 ? `${variantCount} variant${variantCount === 1 ? '' : 's'}` : 'No variants'}</p>
-                        </div>
-                      </div>
-                    </td>
-                    {scope === 'admin' && (
-                      <td className="p-3 hidden md:table-cell text-muted-foreground">
-                        {seller?.name || '-'}
-                      </td>
-                    )}
-                    <td className="p-3 hidden md:table-cell text-muted-foreground">{product.category || '-'}</td>
-                    <td className="p-3 text-right font-medium">{product.stock}</td>
-                    <td className="p-3 text-center">
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          'capitalize',
-                          product.is_active && 'border-success/30 text-success',
-                          !product.is_active && 'border-muted-foreground/30 text-muted-foreground',
-                        )}
-                      >
-                        {product.is_active ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </td>
-                    <td className="p-3 text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => {
-                          setSelectedProductId(product.id);
-                          setOpen(true);
-                        }}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <AdminMasterTable
+          columns={inventoryColumns}
+          data={filteredProducts}
+          rowKey={product => product.id}
+          options={{ showFilters: true, showPagination: false, showSelection: false }}
+        />
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>

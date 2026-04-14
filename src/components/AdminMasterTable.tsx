@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 type Column<T> = {
@@ -32,8 +32,10 @@ export type AdminMasterTableProps<T> = {
   options?: {
     showFilters?: boolean;
     showPagination?: boolean;
-    selectable?: boolean;
+    showSelection?: boolean;
+    showSorting?: boolean;
     pageSizeOptions?: number[];
+    multiSort?: boolean;
   };
 };
 
@@ -80,28 +82,37 @@ export function AdminMasterTable<T>({
     return null;
   };
 
-  const [sortState, setSortState] = useState<{ columnId: string; direction: 'asc' | 'desc' } | null>(null);
+  const [sortState, setSortState] = useState<Array<{ columnId: string; direction: 'asc' | 'desc' }>>([]);
   const showFilters = options?.showFilters ?? true;
   const showPagination = options?.showPagination ?? true;
-  const selectable = options?.selectable ?? true;
+  const showSelection = options?.showSelection ?? true;
+  const showSorting = options?.showSorting ?? true;
+  const allowMultiSort = options?.multiSort ?? false;
 
   const sortedData = useMemo(() => {
-    if (!sortState) return filteredData;
-    const column = columns.find((col) => col.id === sortState.columnId);
-    if (!column) return filteredData;
+    if (sortState.length === 0) return filteredData;
     return [...filteredData].sort((a, b) => {
-      const direction = sortState.direction === 'asc' ? 1 : -1;
-      if (column.sortFn) return column.sortFn(a, b) * direction;
-      const valueA = getSortValue(column, a);
-      const valueB = getSortValue(column, b);
-      if (valueA === valueB) return 0;
-      if (valueA == null) return 1 * direction;
-      if (valueB == null) return -1 * direction;
-      return String(valueA).localeCompare(String(valueB)) * direction;
+      for (const sortEntry of sortState) {
+        const column = columns.find(col => col.id === sortEntry.columnId);
+        if (!column) continue;
+        const direction = sortEntry.direction === 'asc' ? 1 : -1;
+        if (column.sortFn) {
+          const result = column.sortFn(a, b) * direction;
+          if (result !== 0) return result;
+          continue;
+        }
+        const valueA = getSortValue(column, a);
+        const valueB = getSortValue(column, b);
+        if (valueA === valueB) continue;
+        if (valueA == null) return 1 * direction;
+        if (valueB == null) return -1 * direction;
+        return String(valueA).localeCompare(String(valueB)) * direction;
+      }
+      return 0;
     });
   }, [filteredData, sortState, columns]);
 
-  const allVisibleSelected = selectable && sortedData.length > 0 && sortedData.every((row) => selectedIds.has(rowKey(row)));
+  const allVisibleSelected = showSelection && sortedData.length > 0 && sortedData.every((row) => selectedIds.has(rowKey(row)));
 
   const toggleSelectAll = () => {
     setSelectedIds((prev) => {
@@ -168,20 +179,20 @@ export function AdminMasterTable<T>({
     <div className={cn('border rounded-sm overflow-hidden', className)}>
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b bg-muted/50 h-12">
-            <th className="p-3 w-[52px] text-left">
-              {selectable && (
-                <Checkbox
-                  checked={allVisibleSelected}
-                  onCheckedChange={toggleSelectAll}
-                  className="focus-visible:ring-offset-0 focus-visible:ring-offset-transparent"
-                />
+            <tr className="border-b bg-muted/50 h-12">
+              {showSelection && (
+                <th className="p-3 w-[52px] text-left">
+                  <Checkbox
+                    checked={allVisibleSelected}
+                    onCheckedChange={toggleSelectAll}
+                    className="focus-visible:ring-offset-0 focus-visible:ring-offset-transparent"
+                  />
+                </th>
               )}
-            </th>
-            {columns.map((column) => {
-              const isSortable = column.sortable ?? Boolean(column.sortAccessor || column.sortFn);
-              const isSorted = sortState?.columnId === column.id;
-              const direction = isSorted ? sortState?.direction : null;
+              {columns.map((column) => {
+              const isSortable = showSorting && (column.sortable ?? Boolean(column.sortAccessor || column.sortFn));
+              const sortEntry = sortState.find(entry => entry.columnId === column.id);
+              const direction = sortEntry?.direction ?? null;
               return (
                 <th
                   key={column.id}
@@ -194,12 +205,31 @@ export function AdminMasterTable<T>({
                     },
                   )}
                   style={{ width: column.width }}
-                  onClick={() => {
+                  onClick={(event) => {
                     if (!isSortable) return;
+                    const shiftKey = event.shiftKey && allowMultiSort;
                     setSortState((prev) => {
-                      if (!prev || prev.columnId !== column.id) return { columnId: column.id, direction: 'asc' };
-                      if (prev.direction === 'asc') return { columnId: column.id, direction: 'desc' };
-                      return null;
+                      const existingIndex = prev.findIndex(entry => entry.columnId === column.id);
+                      const existingEntry = existingIndex >= 0 ? prev[existingIndex] : null;
+                      const clearStates = !shiftKey;
+
+                      if (clearStates) {
+                        if (!existingEntry) return [{ columnId: column.id, direction: 'asc' }];
+                        if (existingEntry.direction === 'asc') return [{ columnId: column.id, direction: 'desc' }];
+                        return [];
+                      }
+
+                      const nextState = [...prev];
+                      if (!existingEntry) {
+                        nextState.push({ columnId: column.id, direction: 'asc' });
+                        return nextState;
+                      }
+                      if (existingEntry.direction === 'asc') {
+                        nextState[existingIndex] = { columnId: column.id, direction: 'desc' };
+                        return nextState;
+                      }
+                      nextState.splice(existingIndex, 1);
+                      return nextState;
                     });
                   }}
                   role={isSortable ? 'button' : undefined}
@@ -221,46 +251,63 @@ export function AdminMasterTable<T>({
           </tr>
           {showFilters && (
             <tr className="border-b bg-background">
-              <th className="p-2.5"></th>
-              {columns.map((column) => (
-                <th key={`${column.id}-filter`} className="p-2.5">
-                  <Input
-                    placeholder={column.filterPlaceholder || `Search ${column.header}`}
-                    value={filters[column.id]}
-                    onChange={(event) => {
-                      const next = { ...filters, [column.id]: event.target.value };
-                      setFilters(next);
-                    }}
-                    className="rounded-sm"
-                  />
-                </th>
-              ))}
+              {showSelection && <th className="p-2.5"></th>}
+              {columns.map((column) => {
+                const filterable = column.filterable ?? true;
+                if (!filterable) return <th key={`${column.id}-filter`} className="p-2.5" />;
+                return (
+                  <th key={`${column.id}-filter`} className="p-2.5">
+                    <Input
+                      placeholder={column.filterPlaceholder || `Search ${column.header}`}
+                      value={filters[column.id]}
+                      onChange={(event) => {
+                        const next = { ...filters, [column.id]: event.target.value };
+                        setFilters(next);
+                      }}
+                      className="rounded-sm"
+                    />
+                  </th>
+                );
+              })}
             </tr>
           )}
         </thead>
         <tbody>
-          {displayData.map((row) => (
-            <tr className="border-b last:border-0" key={rowKey(row)}>
-              <td className="p-3 text-left">
-                <Checkbox
-                  checked={selectedIds.has(rowKey(row))}
-                  onCheckedChange={() => toggleSelectOne(rowKey(row))}
-                  className="focus-visible:ring-offset-0 focus-visible:ring-offset-transparent"
-                />
+          {displayData.length === 0 ? (
+            <tr>
+              <td colSpan={(showSelection ? 1 : 0) + columns.length} className="p-6">
+                <div className="flex flex-col items-center justify-center gap-2 rounded-sm border border-dashed border-muted/40 bg-muted/5 px-6 py-10 text-center">
+                  <p className="text-sm font-medium text-muted-foreground">No records to display.</p>
+                  <p className="text-xs text-muted-foreground/80">Try adjusting the filters or add new items.</p>
+                </div>
               </td>
-              {columns.map((column) => (
-                <td
-                  key={`${rowKey(row)}-${column.id}`}
-                  className={cn('p-3 align-middle', {
-                    'text-right': column.align === 'right',
-                    'text-center': column.align === 'center',
-                  })}
-                >
-                  {column.accessor(row)}
-                </td>
-              ))}
             </tr>
-          ))}
+          ) : (
+            displayData.map((row) => (
+              <tr className="border-b last:border-0" key={rowKey(row)}>
+                {showSelection && (
+                  <td className="p-3 text-left">
+                    <Checkbox
+                      checked={selectedIds.has(rowKey(row))}
+                      onCheckedChange={() => toggleSelectOne(rowKey(row))}
+                      className="focus-visible:ring-offset-0 focus-visible:ring-offset-transparent"
+                    />
+                  </td>
+                )}
+                {columns.map((column) => (
+                  <td
+                    key={`${rowKey(row)}-${column.id}`}
+                    className={cn('p-3 align-middle', {
+                      'text-right': column.align === 'right',
+                      'text-center': column.align === 'center',
+                    })}
+                  >
+                    {column.accessor(row)}
+                  </td>
+                ))}
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
       {showPagination && (
@@ -268,15 +315,49 @@ export function AdminMasterTable<T>({
           <p className="text-xs text-muted-foreground">
             Showing {startIndex}-{endIndex} of {filteredData.length}
           </p>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))} disabled={normalizedPage === 1}>
-            Previous
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={normalizedPage === 1}
+            onClick={() => setCurrentPage(1)}
+            aria-label="Go to first page"
+            className="h-8 w-8"
+          >
+            <ChevronsLeft className="h-4 w-4" />
           </Button>
-          <span className="text-xs text-muted-foreground">
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={normalizedPage === 1}
+            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+            aria-label="Go to previous page"
+            className="h-8 w-8"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-xs text-muted-foreground px-2">
             Page {normalizedPage} of {totalPages}
           </span>
-          <Button size="sm" variant="ghost" onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))} disabled={normalizedPage === totalPages}>
-            Next
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={normalizedPage === totalPages}
+            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+            aria-label="Go to next page"
+            className="h-8 w-8"
+          >
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={normalizedPage === totalPages}
+            onClick={() => setCurrentPage(totalPages)}
+            aria-label="Go to last page"
+            className="h-8 w-8"
+          >
+            <ChevronsRight className="h-4 w-4" />
           </Button>
         </div>
           {options?.pageSizeOptions && options.pageSizeOptions.length > 0 && (
